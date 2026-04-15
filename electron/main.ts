@@ -11,16 +11,18 @@ function createWindow() {
       contextIsolation: true,
     },
     title: "AssetLink Desktop",
-    icon: path.join(__dirname, process.env.NODE_ENV === 'development' ? '../public/icon.png' : '../dist/icon.png')
+    icon: process.env.NODE_ENV === 'development' 
+      ? path.join(__dirname, '../public/icon.png')
+      : path.join(app.getAppPath(), 'dist', 'icon.png')
   });
 
-  // In development, load from the dev server
   if (process.env.NODE_ENV === 'development') {
     win.loadURL('http://localhost:3000');
     win.webContents.openDevTools();
   } else {
-    // In production, load the built index.html
-    win.loadFile(path.join(__dirname, '../dist/index.html'));
+    // In production, load the built index.html from the dist folder
+    const indexPath = path.join(app.getAppPath(), 'dist', 'index.html');
+    win.loadFile(indexPath);
   }
 }
 
