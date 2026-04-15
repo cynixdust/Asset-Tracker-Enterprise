@@ -1,0 +1,205 @@
+{
+  "entities": {
+    "Asset": {
+      "title": "Asset",
+      "description": "Represents an infrastructure asset in the management system.",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string", "description": "Name of the asset" },
+        "assetTag": { "type": "string", "description": "Unique asset tag or ID" },
+        "category": { "type": "string", "enum": ["Server", "Network", "Storage", "Endpoint", "Software", "Other"] },
+        "vendor": { "type": "string" },
+        "model": { "type": "string" },
+        "serialNumber": { "type": "string" },
+        "purchaseDate": { "type": "string", "format": "date" },
+        "warrantyExpiry": { "type": "string", "format": "date" },
+        "nextMaintenanceDate": { "type": "string", "format": "date" },
+        "status": { "type": "string", "enum": ["Procurement", "Active", "Maintenance", "Retired", "Disposal"] },
+        "statusHistory": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "status": { "type": "string" },
+              "changedAt": { "type": "string", "format": "date-time" },
+              "changedBy": { "type": "string" },
+              "notes": { "type": "string" }
+            }
+          }
+        },
+        "location": { "type": "string", "description": "Site or Datacenter" },
+        "assignedTo": { "type": "string", "description": "User or Department" },
+        "baselineId": { "type": "string", "description": "ID of the assigned configuration baseline" },
+        "specs": { "type": "object", "description": "Key-value pairs of technical specifications" },
+        "relatedAssets": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "targetAssetId": { "type": "string" },
+              "targetAssetName": { "type": "string" },
+              "type": { "type": "string", "enum": ["Parent", "Child", "Depends On", "Required By", "Connected To"] }
+            }
+          }
+        },
+        "compliance": {
+          "type": "object",
+          "properties": {
+            "licenseStatus": { "type": "string", "enum": ["Valid", "Expired", "Missing", "N/A"] },
+            "licenseKey": { "type": "string" },
+            "warrantyStatus": { "type": "string", "enum": ["Active", "Expired", "N/A"] },
+            "securityStandards": { "type": "array", "items": { "type": "string" } },
+            "lastAuditDate": { "type": "string", "format": "date-time" },
+            "isCompliant": { "type": "boolean" },
+            "policyViolations": { "type": "array", "items": { "type": "string" } }
+          }
+        },
+        "version": { "type": "number", "description": "Current version number of the asset record" },
+        "versionHistory": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "version": { "type": "number" },
+              "data": { "type": "object" },
+              "changedAt": { "type": "string", "format": "date-time" },
+              "changedBy": { "type": "string" },
+              "changeReason": { "type": "string" }
+            }
+          }
+        },
+        "notes": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" },
+        "createdBy": { "type": "string", "description": "UID of the user who created the asset" }
+      },
+      "required": ["name", "assetTag", "category", "status"]
+    },
+    "User": {
+      "title": "User",
+      "description": "System user profile.",
+      "type": "object",
+      "properties": {
+        "email": { "type": "string", "format": "email" },
+        "username": { "type": "string" },
+        "displayName": { "type": "string" },
+        "role": { "type": "string", "enum": ["admin", "user"] },
+        "lastLogin": { "type": "string", "format": "date-time" }
+      },
+      "required": ["email", "username", "role"]
+    },
+    "AuditLog": {
+      "title": "Audit Log",
+      "description": "Tracks actions performed in the system.",
+      "type": "object",
+      "properties": {
+        "action": { "type": "string" },
+        "entityType": { "type": "string" },
+        "entityId": { "type": "string" },
+        "userId": { "type": "string" },
+        "timestamp": { "type": "string", "format": "date-time" },
+        "details": { "type": "string" }
+      }
+    },
+    "Settings": {
+      "title": "Settings",
+      "description": "System-wide configuration.",
+      "type": "object",
+      "properties": {
+        "ldapEnabled": { "type": "boolean" },
+        "ldapServer": { "type": "string" },
+        "ldapPort": { "type": "number" },
+        "ldapBaseDn": { "type": "string" },
+        "logo": { "type": "string", "description": "Base64 encoded company logo" },
+        "notificationsEnabled": { "type": "boolean" }
+      }
+    },
+    "Baseline": {
+      "title": "Configuration Baseline",
+      "description": "Approved standard configuration for an asset type.",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "category": { "type": "string", "enum": ["Server", "Network", "Storage", "Endpoint", "Software", "Other"] },
+        "expectedVendor": { "type": "string" },
+        "expectedModel": { "type": "string" },
+        "requiredSpecs": { "type": "object" },
+        "description": { "type": "string" }
+      },
+      "required": ["name", "category"]
+    },
+    "DiscoveryJob": {
+      "title": "Discovery Job",
+      "description": "Configuration for an automated asset discovery task.",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "type": { "type": "string", "enum": ["SNMP", "Network Scan", "Agent", "API"] },
+        "target": { "type": "string", "description": "IP range, subnet, or endpoint" },
+        "status": { "type": "string", "enum": ["Pending", "Running", "Completed", "Failed"] },
+        "lastRun": { "type": "string", "format": "date-time" },
+        "config": { "type": "object" }
+      },
+      "required": ["name", "type", "target", "status"]
+    },
+    "DiscoveryResult": {
+      "title": "Discovery Result",
+      "description": "An asset detected during a discovery job.",
+      "type": "object",
+      "properties": {
+        "jobId": { "type": "string" },
+        "assetData": { "type": "object" },
+        "detectedAt": { "type": "string", "format": "date-time" },
+        "status": { "type": "string", "enum": ["New", "Merged", "Ignored"] }
+      },
+      "required": ["jobId", "assetData", "detectedAt", "status"]
+    },
+    "Policy": {
+      "title": "Compliance Policy",
+      "description": "Rules for governance and compliance tracking.",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "description": { "type": "string" },
+        "category": { "type": "string", "enum": ["Server", "Network", "Storage", "Endpoint", "Software", "Other", "All"] },
+        "severity": { "type": "string", "enum": ["Low", "Medium", "High", "Critical"] },
+        "type": { "type": "string", "enum": ["Warranty", "License", "Security", "Custom"] }
+      },
+      "required": ["name", "type", "severity"]
+    }
+  },
+  "firestore": {
+    "/assets/{assetId}": {
+      "schema": "Asset",
+      "description": "Collection of infrastructure assets"
+    },
+    "/policies/{policyId}": {
+      "schema": "Policy",
+      "description": "Governance and compliance policies"
+    },
+    "/baselines/{baselineId}": {
+      "schema": "Baseline",
+      "description": "Approved configuration templates"
+    },
+    "/discovery_jobs/{jobId}": {
+      "schema": "DiscoveryJob",
+      "description": "Automated discovery configurations"
+    },
+    "/discovery_results/{resultId}": {
+      "schema": "DiscoveryResult",
+      "description": "Detected assets pending review"
+    },
+    "/users/{userId}": {
+      "schema": "User",
+      "description": "User profiles and roles"
+    },
+    "/audit_logs/{logId}": {
+      "schema": "AuditLog",
+      "description": "System audit logs"
+    },
+    "/settings/general": {
+      "schema": "Settings",
+      "description": "General system settings"
+    }
+  }
+}

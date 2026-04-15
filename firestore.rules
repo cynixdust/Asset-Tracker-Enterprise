@@ -1,0 +1,126 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // ===============================================================
+    // Assumed Data Model
+    // ===============================================================
+    //
+    // Collection: assets
+    // Fields: name (string), assetTag (string), category (string), vendor (string), 
+    //         model (string), serialNumber (string), purchaseDate (string), 
+    //         warrantyExpiry (string), status (string), location (string), 
+    //         assignedTo (string), notes (string), createdAt (timestamp), 
+    //         updatedAt (timestamp), createdBy (string)
+    //
+    // Collection: users
+    // Fields: email (string), displayName (string), role (string), lastLogin (timestamp)
+    //
+    // Collection: audit_logs
+    // Fields: action (string), entityType (string), entityId (string), 
+    //         userId (string), timestamp (timestamp), details (string)
+    //
+    // Collection: settings
+    // Fields: ldapEnabled (bool), ldapServer (string), ldapPort (int), ldapBaseDn (string)
+    //
+    // ===============================================================
+
+    // ===============================================================
+    // Helper Functions
+    // ===============================================================
+    
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function getUserData() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+    }
+
+    function isAdmin() {
+      return isAuthenticated() && 
+        (request.auth.token.email == "gcbannermanhyde@gmail.com" ||
+         request.auth.token.email == "admin.assetlink@internal.local" ||
+         (exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
+          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin'));
+    }
+
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    function isValidAsset(data) {
+      return data.name is string && data.name.size() > 0 && data.name.size() < 200 &&
+             data.assetTag is string && data.assetTag.size() > 0 && data.assetTag.size() < 50 &&
+             data.category in ['Server', 'Network', 'Storage', 'Endpoint', 'Software', 'Other'] &&
+             data.status in ['Procurement', 'Active', 'Maintenance', 'Retired', 'Disposal'] &&
+             (!('statusHistory' in data) || data.statusHistory is list) &&
+             (!('vendor' in data) || (data.vendor is string && data.vendor.size() < 100)) &&
+             (!('model' in data) || (data.model is string && data.model.size() < 100)) &&
+             (!('serialNumber' in data) || (data.serialNumber is string && data.serialNumber.size() < 100)) &&
+             (!('location' in data) || (data.location is string && data.location.size() < 100)) &&
+             (!('assignedTo' in data) || (data.assignedTo is string && data.assignedTo.size() < 100)) &&
+             (!('nextMaintenanceDate' in data) || (data.nextMaintenanceDate is string || data.nextMaintenanceDate == null)) &&
+             (!('relatedAssets' in data) || data.relatedAssets is list);
+    }
+
+    function isValidUser(data) {
+      return data.email is string && 
+             data.username is string && data.username.size() > 0 && data.username.size() < 50 &&
+             data.role in ['admin', 'user'];
+    }
+
+    // ===============================================================
+    // Rules
+    // ===============================================================
+
+    match /users/{userId} {
+      allow get, list: if isAuthenticated();
+      allow create: if isAuthenticated() && (
+        request.auth.token.email == "gcbannermanhyde@gmail.com" ||
+        request.auth.token.email == "admin.assetlink@internal.local" ||
+        isAdmin() || 
+        (isOwner(userId) && isValidUser(request.resource.data) && request.resource.data.role == 'user')
+      );
+      allow update: if isAuthenticated() && (isAdmin() || (isOwner(userId) && request.resource.data.role == resource.data.role));
+      allow delete: if isAdmin();
+    }
+
+    match /assets/{assetId} {
+      allow get, list: if isAuthenticated();
+      allow create: if isAuthenticated() && isValidAsset(request.resource.data);
+      allow update: if isAuthenticated() && isValidAsset(request.resource.data);
+      allow delete: if isAdmin();
+    }
+
+    match /audit_logs/{logId} {
+      allow get, list: if isAdmin();
+      allow create: if isAuthenticated();
+      allow update, delete: if false;
+    }
+
+    match /settings/{settingId} {
+      allow get, list: if isAuthenticated();
+      allow create, update, delete: if isAdmin();
+    }
+
+    match /baselines/{baselineId} {
+      allow list, get: if isAuthenticated();
+      allow create, update, delete: if isAdmin();
+    }
+
+    match /discovery_jobs/{jobId} {
+      allow list, get: if isAuthenticated();
+      allow create, update, delete: if isAdmin();
+    }
+
+    match /discovery_results/{resultId} {
+      allow list, get: if isAuthenticated();
+      allow create, update, delete: if isAdmin();
+    }
+
+    match /policies/{policyId} {
+      allow list, get: if isAuthenticated();
+      allow create, update, delete: if isAdmin();
+    }
+  }
+}
