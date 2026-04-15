@@ -17,7 +17,7 @@
   },
   "main": "dist-electron/main.cjs",
   "build": {
-    "appId": "com.assetlink.pro",
+    "appId": "com.assetlink",
     "productName": "AssetLink",
     "directories": {
       "output": "dist-desktop"
@@ -39,8 +39,7 @@
       "perMachine": true,
       "shortcutName": "AssetLink",
       "runAfterFinish": true,
-      "warningsAsErrors": false,
-      "icon": null
+      "warningsAsErrors": false
     },
     "nsis": {
       "oneClick": false,
