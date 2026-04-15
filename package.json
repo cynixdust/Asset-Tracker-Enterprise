@@ -18,7 +18,7 @@
   "main": "dist-electron/main.cjs",
   "build": {
     "appId": "com.assetlink.pro",
-    "productName": "AssetLinkPro",
+    "productName": "AssetLink",
     "directories": {
       "output": "dist-desktop"
     },
@@ -31,13 +31,16 @@
         "nsis",
         "msi"
       ],
+      "icon": null,
       "artifactName": "${productName}-Setup-${version}.${ext}"
     },
     "msi": {
       "oneClick": false,
       "perMachine": true,
-      "shortcutName": "AssetLinkPro",
-      "runAfterFinish": true
+      "shortcutName": "AssetLink",
+      "runAfterFinish": true,
+      "warningsAsErrors": false,
+      "icon": null
     },
     "nsis": {
       "oneClick": false,
