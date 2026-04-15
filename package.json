@@ -28,22 +28,10 @@
     ],
     "win": {
       "target": [
-        "nsis",
-        "msi"
+        "nsis"
       ],
       "icon": "build/icon.png",
       "artifactName": "${productName}-Setup-${version}.${ext}"
-    },
-    "msi": {
-      "oneClick": false,
-      "perMachine": true,
-      "shortcutName": "AssetLink",
-      "runAfterFinish": true,
-      "warningsAsErrors": false,
-      "createDesktopShortcut": true,
-      "additionalLightArgs": [
-        "-sw1076"
-      ]
     },
     "nsis": {
       "oneClick": false,
