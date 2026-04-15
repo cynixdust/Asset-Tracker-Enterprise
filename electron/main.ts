@@ -10,7 +10,7 @@ function createWindow() {
       nodeIntegration: false,
       contextIsolation: true,
     },
-    title: "AssetLink Pro Desktop"
+    title: "AssetLinkPro Desktop"
   });
 
   // In development, load from the dev server

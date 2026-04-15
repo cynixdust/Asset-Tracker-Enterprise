@@ -3,10 +3,7 @@
   "private": true,
   "version": "1.0.0",
   "description": "Enterprise Asset Management and Tracking System",
-  "author": {
-    "name": "AssetLink Pro Team",
-    "email": "gcbannermanhyde@gmail.com"
-  },
+  "author": "AssetLink Pro Team",
   "type": "module",
   "scripts": {
     "dev": "tsx server.ts",
@@ -21,7 +18,7 @@
   "main": "dist-electron/main.cjs",
   "build": {
     "appId": "com.assetlink.pro",
-    "productName": "AssetLink Pro",
+    "productName": "AssetLinkPro",
     "directories": {
       "output": "dist-desktop"
     },
@@ -39,7 +36,8 @@
     "msi": {
       "oneClick": false,
       "perMachine": true,
-      "shortcutName": "AssetLinkPro"
+      "shortcutName": "AssetLinkPro",
+      "runAfterFinish": true
     },
     "nsis": {
       "oneClick": false,
