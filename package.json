@@ -31,7 +31,7 @@
         "nsis",
         "msi"
       ],
-      "icon": null,
+      "icon": "public/icon.png",
       "artifactName": "${productName}-Setup-${version}.${ext}"
     },
     "msi": {
@@ -39,7 +39,10 @@
       "perMachine": true,
       "shortcutName": "AssetLink",
       "runAfterFinish": true,
-      "warningsAsErrors": false
+      "warningsAsErrors": false,
+      "additionalLightArgs": [
+        "-sw1076"
+      ]
     },
     "nsis": {
       "oneClick": false,

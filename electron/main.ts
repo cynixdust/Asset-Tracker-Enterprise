@@ -10,7 +10,8 @@ function createWindow() {
       nodeIntegration: false,
       contextIsolation: true,
     },
-    title: "AssetLink Desktop"
+    title: "AssetLink Desktop",
+    icon: path.join(__dirname, '../public/icon.png')
   });
 
   // In development, load from the dev server
