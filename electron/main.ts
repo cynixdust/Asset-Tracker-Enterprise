@@ -11,7 +11,7 @@ function createWindow() {
       contextIsolation: true,
     },
     title: "AssetLink Desktop",
-    icon: path.join(__dirname, '../public/icon.png')
+    icon: path.join(__dirname, process.env.NODE_ENV === 'development' ? '../public/icon.png' : '../dist/icon.png')
   });
 
   // In development, load from the dev server

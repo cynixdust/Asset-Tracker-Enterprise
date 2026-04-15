@@ -31,7 +31,7 @@
         "nsis",
         "msi"
       ],
-      "icon": "public/icon.png",
+      "icon": "build/icon.png",
       "artifactName": "${productName}-Setup-${version}.${ext}"
     },
     "msi": {
@@ -40,6 +40,7 @@
       "shortcutName": "AssetLink",
       "runAfterFinish": true,
       "warningsAsErrors": false,
+      "createDesktopShortcut": true,
       "additionalLightArgs": [
         "-sw1076"
       ]
@@ -78,6 +79,7 @@
     "lucide-react": "^0.546.0",
     "motion": "^12.38.0",
     "next-themes": "^0.4.6",
+    "pngjs": "^7.0.0",
     "react": "^19.0.0",
     "react-day-picker": "^9.14.0",
     "react-dom": "^19.0.0",
