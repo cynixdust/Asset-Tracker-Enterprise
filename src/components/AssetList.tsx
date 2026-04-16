@@ -19,7 +19,6 @@ import {
   Activity,
   CheckCircle2,
   ShieldCheck,
-  XCircle,
   FileText,
   ShieldAlert,
   History,
@@ -82,7 +81,49 @@ export default function AssetList({ assets, baselines, onAdd, onEdit, onDelete, 
   const [statusFilter, setStatusFilter] = React.useState<string>('all');
   const [locationFilter, setLocationFilter] = React.useState<string>('all');
   const [complianceFilter, setComplianceFilter] = React.useState<string>('all');
-  const [historyAsset, setHistoryAsset] = React.useState<Asset | null>(null);
+  const [selectedAssetId, setSelectedAssetId] = React.useState<string | null>(null);
+  const historyAsset = React.useMemo(() => 
+    assets.find(a => a.id === selectedAssetId) || null, 
+    [assets, selectedAssetId]
+  );
+
+  const formatDate = (date: any) => {
+    if (!date) return 'N/A';
+    try {
+      if (typeof date.toDate === 'function') {
+        return format(date.toDate(), 'MMM d, yyyy');
+      }
+      if (date instanceof Date) {
+        return format(date, 'MMM d, yyyy');
+      }
+      if (typeof date === 'string') {
+        const d = new Date(date);
+        return isNaN(d.getTime()) ? 'N/A' : format(d, 'MMM d, yyyy');
+      }
+    } catch (e) {
+      console.error('Date formatting error:', e);
+    }
+    return 'N/A';
+  };
+
+  const formatDateTime = (date: any) => {
+    if (!date) return 'N/A';
+    try {
+      if (typeof date.toDate === 'function') {
+        return format(date.toDate(), 'MMM d, yyyy HH:mm');
+      }
+      if (date instanceof Date) {
+        return format(date, 'MMM d, yyyy HH:mm');
+      }
+      if (typeof date === 'string') {
+        const d = new Date(date);
+        return isNaN(d.getTime()) ? 'N/A' : format(d, 'MMM d, yyyy HH:mm');
+      }
+    } catch (e) {
+      console.error('Date formatting error:', e);
+    }
+    return 'N/A';
+  };
   
   // Pagination state
   const [currentPage, setCurrentPage] = React.useState(1);
@@ -293,7 +334,7 @@ export default function AssetList({ assets, baselines, onAdd, onEdit, onDelete, 
                         <DropdownMenuItem className="gap-2 cursor-pointer text-xs font-medium" onClick={() => onEdit(asset)}>
                           <Edit2 className="w-3.5 h-3.5" /> Edit Details
                         </DropdownMenuItem>
-                        <DropdownMenuItem className="gap-2 cursor-pointer text-xs font-medium" onClick={() => setHistoryAsset(asset)}>
+                        <DropdownMenuItem className="gap-2 cursor-pointer text-xs font-medium" onClick={() => setSelectedAssetId(asset.id || null)}>
                           <ExternalLink className="w-3.5 h-3.5" /> View History
                         </DropdownMenuItem>
                         {userRole === 'admin' && (
@@ -356,7 +397,7 @@ export default function AssetList({ assets, baselines, onAdd, onEdit, onDelete, 
         </div>
       </div>
 
-      <Dialog open={!!historyAsset} onOpenChange={(open) => !open && setHistoryAsset(null)}>
+      <Dialog open={!!selectedAssetId} onOpenChange={(open) => !open && setSelectedAssetId(null)}>
         <DialogContent className="max-w-2xl rounded-2xl border-none shadow-2xl p-0 overflow-hidden bg-card text-card-foreground">
           <div className="p-8">
             <DialogHeader className="mb-6">
@@ -367,16 +408,16 @@ export default function AssetList({ assets, baselines, onAdd, onEdit, onDelete, 
             </DialogHeader>
 
             <Tabs defaultValue="history" className="w-full">
-              <TabsList className="grid w-full grid-cols-5 mb-8 bg-muted p-1 rounded-xl">
-                <TabsTrigger value="history" className="rounded-lg text-xs font-bold uppercase tracking-wider data-[state=active]:bg-card data-[state=active]:text-foreground data-[state=active]:shadow-sm">Status</TabsTrigger>
-                <TabsTrigger value="versions" className="rounded-lg text-xs font-bold uppercase tracking-wider data-[state=active]:bg-card data-[state=active]:text-foreground data-[state=active]:shadow-sm">Versions</TabsTrigger>
-                <TabsTrigger value="relationships" className="rounded-lg text-xs font-bold uppercase tracking-wider data-[state=active]:bg-card data-[state=active]:text-foreground data-[state=active]:shadow-sm">Links</TabsTrigger>
-                <TabsTrigger value="impact" className="rounded-lg text-xs font-bold uppercase tracking-wider data-[state=active]:bg-card data-[state=active]:text-foreground data-[state=active]:shadow-sm">Impact</TabsTrigger>
-                <TabsTrigger value="compliance" className="rounded-lg text-xs font-bold uppercase tracking-wider data-[state=active]:bg-card data-[state=active]:text-foreground data-[state=active]:shadow-sm">Compliance</TabsTrigger>
+              <TabsList className="flex w-full mb-8 bg-muted p-1 rounded-xl overflow-x-auto no-scrollbar">
+                <TabsTrigger value="history" className="flex-1 rounded-lg text-[10px] font-bold uppercase tracking-wider data-[active]:bg-card data-[active]:text-foreground data-[active]:shadow-sm px-2">Status</TabsTrigger>
+                <TabsTrigger value="versions" className="flex-1 rounded-lg text-[10px] font-bold uppercase tracking-wider data-[active]:bg-card data-[active]:text-foreground data-[active]:shadow-sm px-2">Versions</TabsTrigger>
+                <TabsTrigger value="relationships" className="flex-1 rounded-lg text-[10px] font-bold uppercase tracking-wider data-[active]:bg-card data-[active]:text-foreground data-[active]:shadow-sm px-2">Links</TabsTrigger>
+                <TabsTrigger value="impact" className="flex-1 rounded-lg text-[10px] font-bold uppercase tracking-wider data-[active]:bg-card data-[active]:text-foreground data-[active]:shadow-sm px-2">Impact</TabsTrigger>
+                <TabsTrigger value="compliance" className="flex-1 rounded-lg text-[10px] font-bold uppercase tracking-wider data-[active]:bg-card data-[active]:text-foreground data-[active]:shadow-sm px-2">Compliance</TabsTrigger>
               </TabsList>
 
               <TabsContent value="history" className="mt-0 outline-none">
-                <div className="space-y-8 relative before:absolute before:left-[11px] before:top-2 before:bottom-2 before:w-0.5 before:bg-border/50 max-h-[450px] overflow-y-auto pr-4 -mr-4">
+                <div className="space-y-8 relative before:absolute before:left-[11px] before:top-2 before:bottom-2 before:w-0.5 before:bg-border/50 max-h-[450px] overflow-y-auto pr-4 -mr-4 custom-scrollbar">
                   {historyAsset?.statusHistory?.slice().reverse().map((entry, i) => (
                     <div key={i} className="relative pl-10 group">
                       <div className={cn(
@@ -398,7 +439,7 @@ export default function AssetList({ assets, baselines, onAdd, onEdit, onDelete, 
                           <div className="flex flex-col items-end gap-0.5">
                             <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Date</span>
                             <span className="text-[11px] font-semibold text-foreground">
-                              {entry.changedAt?.toDate ? format(entry.changedAt.toDate(), 'MMM d, yyyy') : 'N/A'}
+                              {formatDate(entry.changedAt)}
                             </span>
                           </div>
                         </div>
@@ -452,7 +493,7 @@ export default function AssetList({ assets, baselines, onAdd, onEdit, onDelete, 
                           <Badge className="text-[9px] font-bold bg-emerald-500 text-white border-none">ACTIVE</Badge>
                         </div>
                         <p className="text-[11px] text-muted-foreground mb-3 leading-relaxed">
-                          Last updated: {historyAsset?.updatedAt?.toDate ? format(historyAsset.updatedAt.toDate(), 'MMM d, yyyy HH:mm') : 'N/A'}
+                          Last updated: {formatDateTime(historyAsset?.updatedAt)}
                         </p>
                         <div className="flex items-center gap-2">
                           <div className="w-4 h-4 rounded-full bg-muted flex items-center justify-center">
@@ -472,7 +513,7 @@ export default function AssetList({ assets, baselines, onAdd, onEdit, onDelete, 
                         <div className="flex-1 p-5 rounded-2xl bg-card border border-border hover:border-primary/30 hover:shadow-md transition-all">
                           <div className="flex items-center justify-between mb-2">
                             <span className="text-xs font-bold text-foreground">Version {v.version}</span>
-                            <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">{v.changedAt?.toDate ? format(v.changedAt.toDate(), 'MMM d, yyyy') : 'N/A'}</span>
+                            <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">{formatDate(v.changedAt)}</span>
                           </div>
                           <p className="text-[11px] text-muted-foreground mb-4 leading-relaxed">{v.changeReason || 'No change reason documented'}</p>
                           <div className="flex items-center justify-between pt-3 border-t border-border/50">
@@ -731,7 +772,7 @@ export default function AssetList({ assets, baselines, onAdd, onEdit, onDelete, 
                                 {isCompliant ? "Asset Fully Compliant" : "Compliance Issues Detected"}
                               </p>
                               <p className="text-[11px] text-muted-foreground">
-                                Last Audit: <span className="font-bold text-foreground">{historyAsset.compliance?.lastAuditDate ? format(historyAsset.compliance.lastAuditDate.toDate(), 'MMM d, yyyy') : 'Never'}</span>
+                                Last Audit: <span className="font-bold text-foreground">{formatDate(historyAsset.compliance?.lastAuditDate)}</span>
                               </p>
                             </div>
                           </div>
@@ -798,18 +839,27 @@ export default function AssetList({ assets, baselines, onAdd, onEdit, onDelete, 
                               </div>
 
                               {/* Specs Check */}
-                              {Object.entries(baseline.requiredSpecs || {}).map(([k, v]) => (
-                                <div key={k} className="flex items-center justify-between p-4 rounded-2xl bg-card border border-border hover:bg-muted/30 transition-colors group">
-                                  <div className="flex flex-col gap-0.5">
-                                    <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Spec: {k}</span>
-                                    <span className="text-xs font-semibold text-foreground">Expected: {v}</span>
+                              {Object.entries(baseline.requiredSpecs || {}).map(([k, v]) => {
+                                const actualValue = historyAsset.specs?.[k] || 'N/A';
+                                const isMatch = actualValue === v;
+                                return (
+                                  <div key={k} className="flex items-center justify-between p-4 rounded-2xl bg-card border border-border hover:bg-muted/30 transition-colors group">
+                                    <div className="flex flex-col gap-0.5">
+                                      <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Spec: {k}</span>
+                                      <div className="flex flex-col">
+                                        <span className="text-xs font-semibold text-foreground">Expected: {v}</span>
+                                        <span className={cn("text-[11px] font-medium", isMatch ? "text-emerald-500" : "text-rose-500")}>
+                                          Found: {actualValue}
+                                        </span>
+                                      </div>
+                                    </div>
+                                    {isMatch ? 
+                                      <CheckCircle2 className="w-5 h-5 text-emerald-500" /> : 
+                                      <Badge variant="destructive" className="text-[9px] font-bold px-2">DEVIATION</Badge>
+                                    }
                                   </div>
-                                  {historyAsset.specs?.[k] === v ? 
-                                    <CheckCircle2 className="w-5 h-5 text-emerald-500" /> : 
-                                    <Badge variant="destructive" className="text-[9px] font-bold px-2">DEVIATION</Badge>
-                                  }
-                                </div>
-                              ))}
+                                );
+                              })}
                             </div>
                           </div>
 
@@ -846,7 +896,7 @@ export default function AssetList({ assets, baselines, onAdd, onEdit, onDelete, 
             </Tabs>
 
             <div className="mt-8 pt-6 border-t border-slate-100 flex justify-end">
-              <Button variant="outline" onClick={() => setHistoryAsset(null)} className="text-xs font-bold uppercase tracking-wider">
+              <Button variant="outline" onClick={() => setSelectedAssetId(null)} className="text-xs font-bold uppercase tracking-wider">
                 Close
               </Button>
             </div>

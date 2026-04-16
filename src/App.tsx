@@ -113,6 +113,7 @@ export default function App() {
   }, [user]);
 
   const handleAddAsset = async (data: any) => {
+    console.log('Attempting to add asset:', data);
     try {
       const statusEntry: StatusHistoryEntry = {
         status: data.status,
@@ -129,6 +130,8 @@ export default function App() {
       };
 
       const assetId = await firestoreService.add('assets', assetData);
+      console.log('Asset added successfully with ID:', assetId);
+      
       await firestoreService.add('audit_logs', {
         action: 'CREATE',
         entityType: 'Asset',
@@ -138,17 +141,48 @@ export default function App() {
       });
       setIsAssetFormOpen(false);
       toast.success('Asset created successfully');
-    } catch (error) {
-      console.error(error);
-      toast.error('Failed to create asset');
+    } catch (error: any) {
+      console.error('Failed to add asset:', error);
+      let message = 'Failed to create asset';
+      try {
+        const errObj = JSON.parse(error.message);
+        message = `Creation failed: ${errObj.error}`;
+      } catch (e) {
+        message = error.message || message;
+      }
+      toast.error(message);
     }
   };
 
   const handleUpdateAsset = async (data: any) => {
-    if (!editingAsset?.id) return;
+    if (!editingAsset?.id) {
+      console.error('Update failed: No editingAsset ID found');
+      return;
+    }
+    
+    console.log('Attempting to update asset:', editingAsset.id, data);
+    
     try {
-      const updateData: any = { ...data };
+      // Helper to remove undefined values recursively
+      const stripUndefined = (obj: any): any => {
+        if (Array.isArray(obj)) {
+          return obj.map(stripUndefined);
+        } else if (obj !== null && typeof obj === 'object' && !(obj instanceof Date)) {
+          return Object.entries(obj).reduce((acc, [key, value]) => {
+            if (value !== undefined) {
+              acc[key] = stripUndefined(value);
+            }
+            return acc;
+          }, {} as any);
+        }
+        return obj;
+      };
+
+      const updateData: any = stripUndefined({ ...data });
       
+      // Ensure we don't accidentally send the ID in the update payload
+      delete updateData.id;
+
       if (data.status !== editingAsset.status) {
         const statusEntry: StatusHistoryEntry = {
           status: data.status,
@@ -156,7 +190,7 @@ export default function App() {
           changedBy: user?.uid || 'system',
           notes: data.notes || 'Status updated'
         };
-        updateData.statusHistory = arrayUnion(statusEntry);
+        updateData.statusHistory = arrayUnion(stripUndefined(statusEntry));
       }
 
       // Handle Versioning
@@ -164,18 +198,25 @@ export default function App() {
       const nextVersion = currentVersion + 1;
       
       // Create version record of the PREVIOUS state
+      const prevData = { ...editingAsset };
+      delete (prevData as any).id;
+      delete (prevData as any).versionHistory;
+      if (!prevData.statusHistory) prevData.statusHistory = [];
+
       const versionRecord = {
         version: currentVersion,
-        data: { ...editingAsset, versionHistory: undefined }, // Don't nest histories
+        data: stripUndefined(prevData),
         changedAt: new Date(),
         changedBy: user?.uid || 'system',
         changeReason: 'Asset updated'
       };
 
       updateData.version = nextVersion;
-      updateData.versionHistory = arrayUnion(versionRecord);
+      updateData.versionHistory = arrayUnion(stripUndefined(versionRecord));
 
       await firestoreService.update('assets', editingAsset.id, updateData);
+      console.log('Asset updated successfully');
+
       await firestoreService.add('audit_logs', {
         action: 'UPDATE',
         entityType: 'Asset',
@@ -186,9 +227,18 @@ export default function App() {
       setIsAssetFormOpen(false);
       setEditingAsset(null);
       toast.success('Asset updated successfully');
-    } catch (error) {
-      console.error(error);
-      toast.error('Failed to update asset');
+    } catch (error: any) {
+      console.error('Failed to update asset:', error);
+      let message = 'Failed to update asset';
+      try {
+        // Handle Firestore structured errors if they exist
+        const errObj = JSON.parse(error.message);
+        message = `Update failed: ${errObj.error}`;
+      } catch (e) {
+        // Handle raw Firestore error messages
+        message = error.message || message;
+      }
+      toast.error(message);
     }
   };
 
