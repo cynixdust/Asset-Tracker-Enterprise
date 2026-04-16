@@ -88,33 +88,58 @@ export default function DiscoveryManager({ jobs, results }: DiscoveryManagerProp
     try {
       await firestoreService.update('discovery_jobs', job.id, { status: 'Running' });
       
-      // Simulate network delay
-      await new Promise(resolve => setTimeout(resolve, 2000));
+      let discoveredAssets: Partial<Asset>[] = [];
 
-      // Mock discovered assets based on type
-      const mockAssets: Partial<Asset>[] = [];
-      if (job.type === 'Network Scan') {
-        mockAssets.push({
-          name: `Discovered-Switch-${Math.floor(Math.random() * 100)}`,
-          assetTag: `DISC-${Math.floor(Math.random() * 10000)}`,
-          category: 'Network',
-          vendor: 'Cisco',
-          model: 'Catalyst 9200',
-          location: 'Auto-Detected',
-          status: 'Procurement'
-        });
-      } else if (job.type === 'Agent') {
-        mockAssets.push({
-          name: `Workstation-${Math.floor(Math.random() * 100)}`,
-          assetTag: `AGT-${Math.floor(Math.random() * 10000)}`,
-          category: 'Endpoint',
-          vendor: 'Dell',
-          model: 'OptiPlex 7000',
-          status: 'Active'
-        });
+      // Check if we are in Electron for a real scan
+      if (window.electron && job.type === 'Network Scan') {
+        toast.info('Starting real network scan via Desktop Agent...');
+        try {
+          const devices = await window.electron.scanNetwork();
+          discoveredAssets = devices.map(device => ({
+            name: device.name && device.name !== '?' ? device.name : `Device-${device.ip.split('.').pop()}`,
+            assetTag: `DISC-${Math.floor(Math.random() * 10000)}`,
+            category: 'Network',
+            vendor: 'Auto-Detected',
+            model: 'Generic Network Device',
+            location: 'Local Network',
+            status: 'Active',
+            notes: `IP: ${device.ip}, MAC: ${device.mac || 'Unknown'}`
+          }));
+        } catch (scanError) {
+          console.error('Real scan failed, falling back to simulation:', scanError);
+          toast.warning('Real scan failed. Using simulation mode.');
+          throw scanError; // Let the outer catch handle it
+        }
+      } else {
+        // Mock network delay
+        await new Promise(resolve => setTimeout(resolve, 2000));
+
+        // Mock discovered assets based on type
+        if (job.type === 'Network Scan') {
+          discoveredAssets.push({
+            name: `Discovered-Switch-${Math.floor(Math.random() * 100)}`,
+            assetTag: `DISC-${Math.floor(Math.random() * 10000)}`,
+            category: 'Network',
+            vendor: 'Cisco',
+            model: 'Catalyst 9200',
+            location: 'Auto-Detected',
+            status: 'Procurement',
+            notes: 'SIMULATED DATA: Running in web preview mode.'
+          });
+        } else if (job.type === 'Agent') {
+          discoveredAssets.push({
+            name: `Workstation-${Math.floor(Math.random() * 100)}`,
+            assetTag: `AGT-${Math.floor(Math.random() * 10000)}`,
+            category: 'Endpoint',
+            vendor: 'Dell',
+            model: 'OptiPlex 7000',
+            status: 'Active',
+            notes: 'SIMULATED DATA: Running in web preview mode.'
+          });
+        }
       }
 
-      for (const assetData of mockAssets) {
+      for (const assetData of discoveredAssets) {
         await firestoreService.add('discovery_results', {
           jobId: job.id,
           assetData,
@@ -128,9 +153,9 @@ export default function DiscoveryManager({ jobs, results }: DiscoveryManagerProp
         lastRun: new Date()
       });
       
-      toast.success(`Scan complete: Found ${mockAssets.length} new assets`);
+      toast.success(`Scan complete: Found ${discoveredAssets.length} new assets`);
     } catch (error) {
-      toast.error('Scan failed');
+      toast.error('Scan failed. Ensure you are running the Desktop app for real network discovery.');
       await firestoreService.update('discovery_jobs', job.id, { status: 'Failed' });
     } finally {
       setIsScanning(null);
@@ -180,6 +205,13 @@ export default function DiscoveryManager({ jobs, results }: DiscoveryManagerProp
           <p className="text-sm text-muted-foreground">Automate asset detection via network scans, agents, and APIs.</p>
         </div>
         <div className="flex gap-3">
+          <Badge variant="outline" className={cn(
+            "px-3 py-1 gap-2 border-none",
+            window.electron ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400" : "bg-amber-500/10 text-amber-600 dark:text-amber-400"
+          )}>
+            <div className={cn("w-2 h-2 rounded-full animate-pulse", window.electron ? "bg-emerald-500" : "bg-amber-500")} />
+            {window.electron ? "Live Mode (Desktop Agent)" : "Simulation Mode (Web Preview)"}
+          </Badge>
           <Button variant="outline" onClick={() => {
             const mockApiResult: DiscoveryResult = {
               jobId: 'api-integration',

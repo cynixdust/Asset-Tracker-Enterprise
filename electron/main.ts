@@ -1,5 +1,6 @@
-import { app, BrowserWindow } from 'electron';
+import { app, BrowserWindow, ipcMain } from 'electron';
 import * as path from 'path';
+import find from 'local-devices';
 
 function createWindow() {
   const win = new BrowserWindow({
@@ -27,6 +28,18 @@ function createWindow() {
 }
 
 app.whenReady().then(() => {
+  ipcMain.handle('scan-network', async () => {
+    try {
+      console.log('Starting network scan...');
+      const devices = await find();
+      console.log(`Scan complete. Found ${devices.length} devices.`);
+      return devices;
+    } catch (error) {
+      console.error('Network scan failed:', error);
+      throw error;
+    }
+  });
+
   createWindow();
 
   app.on('activate', () => {

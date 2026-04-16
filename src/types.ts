@@ -125,3 +125,12 @@ export interface SystemSettings {
   ldapPort: number;
   ldapBaseDn: string;
 }
+
+declare global {
+  interface Window {
+    electron?: {
+      scanNetwork: () => Promise<any[]>;
+      getPlatform: () => string;
+    };
+  }
+}

@@ -1,3 +1,10 @@
+import { contextBridge, ipcRenderer } from 'electron';
+
+contextBridge.exposeInMainWorld('electron', {
+  scanNetwork: () => ipcRenderer.invoke('scan-network'),
+  getPlatform: () => process.platform,
+});
+
 window.addEventListener('DOMContentLoaded', () => {
   const replaceText = (selector: string, text: string) => {
     const element = document.getElementById(selector);

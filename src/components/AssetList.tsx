@@ -375,12 +375,12 @@ export default function AssetList({ assets, baselines, onAdd, onEdit, onDelete, 
                 <TabsTrigger value="compliance" className="rounded-lg text-xs font-bold uppercase tracking-wider data-[state=active]:bg-card data-[state=active]:text-foreground data-[state=active]:shadow-sm">Compliance</TabsTrigger>
               </TabsList>
 
-              <TabsContent value="history" className="mt-0">
-                <div className="space-y-6 relative before:absolute before:left-[11px] before:top-2 before:bottom-2 before:w-0.5 before:bg-border max-h-[400px] overflow-y-auto pr-2">
+              <TabsContent value="history" className="mt-0 outline-none">
+                <div className="space-y-8 relative before:absolute before:left-[11px] before:top-2 before:bottom-2 before:w-0.5 before:bg-border/50 max-h-[450px] overflow-y-auto pr-4 -mr-4">
                   {historyAsset?.statusHistory?.slice().reverse().map((entry, i) => (
-                    <div key={i} className="relative pl-8">
+                    <div key={i} className="relative pl-10 group">
                       <div className={cn(
-                        "absolute left-0 top-1.5 w-6 h-6 rounded-full border-4 border-card flex items-center justify-center shadow-sm",
+                        "absolute left-0 top-1.5 w-6 h-6 rounded-full border-4 border-card flex items-center justify-center shadow-sm z-10 transition-transform group-hover:scale-110",
                         entry.status === 'Active' ? "bg-emerald-500" : 
                         entry.status === 'Maintenance' ? "bg-amber-500" : 
                         entry.status === 'Retired' ? "bg-slate-400" : 
@@ -388,204 +388,268 @@ export default function AssetList({ assets, baselines, onAdd, onEdit, onDelete, 
                       )}>
                         <div className="w-1.5 h-1.5 rounded-full bg-white dark:bg-slate-900" />
                       </div>
-                      <div className="flex flex-col">
-                        <div className="flex items-center justify-between">
-                          <span className="text-sm font-bold text-foreground">{entry.status}</span>
-                          <span className="text-[10px] font-bold text-muted-foreground uppercase">
-                            {entry.changedAt?.toDate ? format(entry.changedAt.toDate(), 'MMM d, yyyy') : 'N/A'}
-                          </span>
+                      
+                      <div className="flex flex-col gap-3 p-4 rounded-2xl bg-muted/30 border border-transparent hover:border-border hover:bg-muted/50 transition-all">
+                        <div className="flex items-center justify-between gap-4">
+                          <div className="flex flex-col gap-0.5">
+                            <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Status</span>
+                            <span className="text-sm font-bold text-foreground">{entry.status}</span>
+                          </div>
+                          <div className="flex flex-col items-end gap-0.5">
+                            <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Date</span>
+                            <span className="text-[11px] font-semibold text-foreground">
+                              {entry.changedAt?.toDate ? format(entry.changedAt.toDate(), 'MMM d, yyyy') : 'N/A'}
+                            </span>
+                          </div>
                         </div>
-                        <p className="text-xs text-muted-foreground mt-1">{entry.notes || 'No notes provided'}</p>
-                        <span className="text-[10px] font-semibold text-muted-foreground mt-1 uppercase tracking-tight">
-                          Changed by: {entry.changedBy}
-                        </span>
+                        
+                        <div className="space-y-1">
+                          <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Notes</span>
+                          <p className="text-xs text-foreground leading-relaxed">{entry.notes || 'Initial record creation'}</p>
+                        </div>
+                        
+                        <div className="pt-2 border-t border-border/50 flex items-center justify-between">
+                          <div className="flex flex-col gap-0.5">
+                            <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Changed By</span>
+                            <span className="text-[10px] font-mono text-muted-foreground break-all max-w-[300px]">
+                              {entry.changedBy}
+                            </span>
+                          </div>
+                          <Clock className="w-3.5 h-3.5 text-muted-foreground/30" />
+                        </div>
                       </div>
                     </div>
                   ))}
                   {(!historyAsset?.statusHistory || historyAsset.statusHistory.length === 0) && (
-                    <p className="text-center text-xs text-muted-foreground py-8">No history entries found.</p>
+                    <div className="flex flex-col items-center justify-center py-12 text-center">
+                      <History className="w-12 h-12 text-muted-foreground/20 mb-4" />
+                      <p className="text-sm font-bold text-muted-foreground uppercase tracking-wider">No history entries found</p>
+                      <p className="text-xs text-muted-foreground/60">This asset has no recorded status changes.</p>
+                    </div>
                   )}
                 </div>
               </TabsContent>
 
-              <TabsContent value="versions" className="mt-0">
-                <div className="space-y-6 max-h-[400px] overflow-y-auto pr-2">
-                  <div className="flex items-center justify-between">
-                    <h4 className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Record Version History</h4>
-                    <Badge variant="outline" className="text-[10px] font-bold bg-muted">Current v{historyAsset?.version || 1}</Badge>
+              <TabsContent value="versions" className="mt-0 outline-none">
+                <div className="space-y-6 max-h-[450px] overflow-y-auto pr-4 -mr-4">
+                  <div className="flex items-center justify-between mb-4">
+                    <div className="flex flex-col gap-0.5">
+                      <h4 className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Record Version History</h4>
+                      <p className="text-[11px] text-muted-foreground">Audit trail of all schema changes</p>
+                    </div>
+                    <Badge variant="outline" className="text-[10px] font-bold bg-primary/5 text-primary border-primary/20 px-3 py-1">Current v{historyAsset?.version || 1}</Badge>
                   </div>
 
-                  <div className="relative space-y-4 before:absolute before:inset-0 before:ml-5 before:-translate-x-px before:h-full before:w-0.5 before:bg-gradient-to-b before:from-border before:via-border before:to-transparent">
+                  <div className="relative space-y-6 before:absolute before:inset-0 before:ml-5 before:-translate-x-px before:h-full before:w-0.5 before:bg-gradient-to-b before:from-primary/50 before:via-border before:to-transparent">
                     {/* Current Version */}
                     <div className="relative flex items-start gap-4 group">
-                      <div className="mt-1.5 w-10 h-10 rounded-full bg-primary flex items-center justify-center shadow-lg shadow-primary/20 shrink-0 z-10">
+                      <div className="mt-1.5 w-10 h-10 rounded-full bg-primary flex items-center justify-center shadow-lg shadow-primary/20 shrink-0 z-10 ring-4 ring-card">
                         <History className="w-5 h-5 text-primary-foreground" />
                       </div>
-                      <div className="flex-1 p-4 rounded-2xl bg-muted/50 border border-border">
-                        <div className="flex items-center justify-between mb-1">
+                      <div className="flex-1 p-5 rounded-2xl bg-primary/5 border border-primary/20 shadow-sm">
+                        <div className="flex items-center justify-between mb-2">
                           <span className="text-xs font-bold text-foreground">Current Version (v{historyAsset?.version || 1})</span>
-                          <span className="text-[10px] font-medium text-muted-foreground">Active</span>
+                          <Badge className="text-[9px] font-bold bg-emerald-500 text-white border-none">ACTIVE</Badge>
                         </div>
-                        <p className="text-[11px] text-muted-foreground">Last updated: {historyAsset?.updatedAt?.toDate ? format(historyAsset.updatedAt.toDate(), 'MMM d, yyyy HH:mm') : 'N/A'}</p>
+                        <p className="text-[11px] text-muted-foreground mb-3 leading-relaxed">
+                          Last updated: {historyAsset?.updatedAt?.toDate ? format(historyAsset.updatedAt.toDate(), 'MMM d, yyyy HH:mm') : 'N/A'}
+                        </p>
+                        <div className="flex items-center gap-2">
+                          <div className="w-4 h-4 rounded-full bg-muted flex items-center justify-center">
+                            <Clock className="w-2.5 h-2.5 text-muted-foreground" />
+                          </div>
+                          <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-tight">System Managed</span>
+                        </div>
                       </div>
                     </div>
 
                     {/* Previous Versions */}
                     {historyAsset?.versionHistory?.slice().reverse().map((v, idx) => (
                       <div key={idx} className="relative flex items-start gap-4 group">
-                        <div className="mt-1.5 w-10 h-10 rounded-full bg-card border-2 border-border flex items-center justify-center shrink-0 z-10">
-                          <Clock className="w-4 h-4 text-muted-foreground" />
+                        <div className="mt-1.5 w-10 h-10 rounded-full bg-card border-2 border-border flex items-center justify-center shrink-0 z-10 group-hover:border-primary/50 transition-colors">
+                          <Clock className="w-4 h-4 text-muted-foreground group-hover:text-primary transition-colors" />
                         </div>
-                        <div className="flex-1 p-4 rounded-2xl bg-card border border-border hover:border-primary/30 transition-colors">
-                          <div className="flex items-center justify-between mb-1">
+                        <div className="flex-1 p-5 rounded-2xl bg-card border border-border hover:border-primary/30 hover:shadow-md transition-all">
+                          <div className="flex items-center justify-between mb-2">
                             <span className="text-xs font-bold text-foreground">Version {v.version}</span>
-                            <span className="text-[10px] font-medium text-muted-foreground">{v.changedAt?.toDate ? format(v.changedAt.toDate(), 'MMM d, yyyy') : 'N/A'}</span>
+                            <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">{v.changedAt?.toDate ? format(v.changedAt.toDate(), 'MMM d, yyyy') : 'N/A'}</span>
                           </div>
-                          <p className="text-[11px] text-muted-foreground mb-2">{v.changeReason || 'No reason provided'}</p>
-                          <div className="flex items-center gap-2">
-                            <Badge variant="secondary" className="text-[9px] font-bold bg-muted text-muted-foreground uppercase tracking-tighter">BY: {v.changedBy.slice(0, 8)}</Badge>
+                          <p className="text-[11px] text-muted-foreground mb-4 leading-relaxed">{v.changeReason || 'No change reason documented'}</p>
+                          <div className="flex items-center justify-between pt-3 border-t border-border/50">
+                            <div className="flex items-center gap-2">
+                              <span className="text-[9px] font-bold text-muted-foreground uppercase tracking-widest">Author:</span>
+                              <Badge variant="secondary" className="text-[9px] font-bold bg-muted text-muted-foreground uppercase tracking-tighter px-2">
+                                {v.changedBy.slice(0, 12)}...
+                              </Badge>
+                            </div>
+                            <Button variant="ghost" size="sm" className="h-6 text-[9px] font-bold uppercase tracking-widest text-primary hover:bg-primary/5">Details</Button>
                           </div>
                         </div>
                       </div>
                     ))}
 
                     {(!historyAsset?.versionHistory || historyAsset.versionHistory.length === 0) && (
-                      <div className="text-center py-8">
-                        <p className="text-xs text-slate-400 italic">No previous versions recorded.</p>
+                      <div className="flex flex-col items-center justify-center py-12 text-center bg-muted/20 rounded-2xl border border-dashed border-border">
+                        <History className="w-10 h-10 text-muted-foreground/20 mb-3" />
+                        <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider">No version history</p>
+                        <p className="text-[10px] text-muted-foreground/60">This is the initial version of the record.</p>
                       </div>
                     )}
                   </div>
                 </div>
               </TabsContent>
 
-              <TabsContent value="relationships" className="mt-0">
-                <div className="rounded-xl border border-border overflow-hidden">
-                  <Table>
-                    <TableHeader className="bg-muted/50">
-                      <TableRow className="hover:bg-transparent border-border">
-                        <TableHead className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground py-3">Relationship</TableHead>
-                        <TableHead className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Target Asset</TableHead>
-                        <TableHead className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Category</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {historyAsset?.relatedAssets && historyAsset.relatedAssets.length > 0 ? (
-                        historyAsset.relatedAssets.map((rel, i) => {
-                          const targetAsset = assets.find(a => a.id === rel.targetAssetId);
-                          return (
-                            <TableRow key={i} className="hover:bg-muted/30 border-border">
-                              <TableCell className="py-3">
-                                <Badge variant="outline" className="text-[9px] font-bold uppercase border-border text-primary bg-card">
-                                  {rel.type}
-                                </Badge>
-                              </TableCell>
-                              <TableCell className="text-xs font-semibold text-foreground">
-                                {rel.targetAssetName}
-                              </TableCell>
-                              <TableCell className="text-[11px] text-muted-foreground">
-                                {targetAsset?.category || 'N/A'}
-                              </TableCell>
-                            </TableRow>
-                          );
-                        })
-                      ) : (
-                        <TableRow>
-                          <TableCell colSpan={3} className="h-32 text-center text-xs text-muted-foreground italic">
-                            No CI relationships defined for this asset.
-                          </TableCell>
+              <TabsContent value="relationships" className="mt-0 outline-none">
+                <div className="space-y-6 max-h-[450px] overflow-y-auto pr-4 -mr-4">
+                  <div className="flex flex-col gap-1 mb-2">
+                    <h4 className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Configuration Item Links</h4>
+                    <p className="text-[11px] text-muted-foreground">Direct dependencies and parent/child relationships</p>
+                  </div>
+
+                  <div className="rounded-2xl border border-border overflow-hidden bg-muted/20">
+                    <Table>
+                      <TableHeader className="bg-muted/50">
+                        <TableRow className="hover:bg-transparent border-border">
+                          <TableHead className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground py-3 px-4">Relationship</TableHead>
+                          <TableHead className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Target Asset</TableHead>
+                          <TableHead className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Category</TableHead>
+                          <TableHead className="text-right text-[10px] font-bold uppercase tracking-wider text-muted-foreground pr-4">Action</TableHead>
                         </TableRow>
-                      )}
-                    </TableBody>
-                  </Table>
-                </div>
-                
-                {/* Inverse Relationships (Assets that point to this one) */}
-                {assets.some(a => a.relatedAssets?.some(r => r.targetAssetId === historyAsset?.id)) && (
-                  <div className="mt-6">
-                    <h5 className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground mb-3">Referenced By</h5>
-                    <div className="rounded-xl border border-border overflow-hidden">
-                      <Table>
-                        <TableBody>
-                          {assets.filter(a => a.relatedAssets?.some(r => r.targetAssetId === historyAsset?.id)).map((a, i) => {
-                            const rel = a.relatedAssets?.find(r => r.targetAssetId === historyAsset?.id);
+                      </TableHeader>
+                      <TableBody>
+                        {historyAsset?.relatedAssets && historyAsset.relatedAssets.length > 0 ? (
+                          historyAsset.relatedAssets.map((rel, i) => {
+                            const targetAsset = assets.find(a => a.id === rel.targetAssetId);
                             return (
-                              <TableRow key={i} className="hover:bg-muted/30 border-border">
-                                <TableCell className="py-3 text-xs font-semibold text-foreground">
-                                  {a.name}
-                                </TableCell>
-                                <TableCell className="text-right">
-                                  <Badge variant="outline" className="text-[9px] font-bold uppercase border-border text-muted-foreground bg-card">
-                                    {rel?.type === 'Parent' ? 'Child' : 
-                                     rel?.type === 'Child' ? 'Parent' : 
-                                     rel?.type === 'Depends On' ? 'Required By' : 
-                                     rel?.type === 'Required By' ? 'Depends On' : 'Linked'}
+                              <TableRow key={i} className="hover:bg-muted/30 border-border group">
+                                <TableCell className="py-3 px-4">
+                                  <Badge variant="outline" className="text-[9px] font-bold uppercase border-primary/20 text-primary bg-primary/5">
+                                    {rel.type}
                                   </Badge>
+                                </TableCell>
+                                <TableCell className="text-xs font-semibold text-foreground">
+                                  {rel.targetAssetName}
+                                </TableCell>
+                                <TableCell className="text-[11px] text-muted-foreground">
+                                  {targetAsset?.category || 'N/A'}
+                                </TableCell>
+                                <TableCell className="text-right pr-4">
+                                  <Button variant="ghost" size="sm" className="h-7 w-7 p-0 opacity-0 group-hover:opacity-100 transition-opacity">
+                                    <ExternalLink className="w-3.5 h-3.5 text-muted-foreground" />
+                                  </Button>
                                 </TableCell>
                               </TableRow>
                             );
-                          })}
-                        </TableBody>
-                      </Table>
-                    </div>
+                          })
+                        ) : (
+                          <TableRow>
+                            <TableCell colSpan={4} className="h-32 text-center">
+                              <div className="flex flex-col items-center justify-center gap-2">
+                                <Zap className="w-8 h-8 text-muted-foreground/20" />
+                                <p className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider">No CI relationships defined</p>
+                              </div>
+                            </TableCell>
+                          </TableRow>
+                        )}
+                      </TableBody>
+                    </Table>
                   </div>
-                )}
+                  
+                  {/* Inverse Relationships */}
+                  {assets.some(a => a.relatedAssets?.some(r => r.targetAssetId === historyAsset?.id)) && (
+                    <div className="mt-8">
+                      <div className="flex flex-col gap-1 mb-4">
+                        <h5 className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Referenced By</h5>
+                        <p className="text-[11px] text-muted-foreground">Assets that depend on this configuration item</p>
+                      </div>
+                      <div className="rounded-2xl border border-border overflow-hidden bg-muted/20">
+                        <Table>
+                          <TableBody>
+                            {assets.filter(a => a.relatedAssets?.some(r => r.targetAssetId === historyAsset?.id)).map((a, i) => {
+                              const rel = a.relatedAssets?.find(r => r.targetAssetId === historyAsset?.id);
+                              return (
+                                <TableRow key={i} className="hover:bg-muted/30 border-border">
+                                  <TableCell className="py-3 px-4 text-xs font-semibold text-foreground">
+                                    {a.name}
+                                  </TableCell>
+                                  <TableCell className="text-[11px] text-muted-foreground">
+                                    {a.category}
+                                  </TableCell>
+                                  <TableCell className="text-right pr-4">
+                                    <Badge variant="outline" className="text-[9px] font-bold uppercase border-border text-muted-foreground bg-card">
+                                      {rel?.type === 'Parent' ? 'Child' : 
+                                       rel?.type === 'Child' ? 'Parent' : 
+                                       rel?.type === 'Depends On' ? 'Required By' : 
+                                       rel?.type === 'Required By' ? 'Depends On' : 'Linked'}
+                                    </Badge>
+                                  </TableCell>
+                                </TableRow>
+                              );
+                            })}
+                          </TableBody>
+                        </Table>
+                      </div>
+                    </div>
+                  )}
+                </div>
               </TabsContent>
 
-              <TabsContent value="impact" className="mt-0">
-                <div className="space-y-6">
+              <TabsContent value="impact" className="mt-0 outline-none">
+                <div className="space-y-6 max-h-[450px] overflow-y-auto pr-4 -mr-4">
                   <div className={cn(
-                    "p-4 rounded-2xl border flex items-center gap-4",
-                    historyAsset?.status === 'Active' ? "bg-emerald-500/10 border-emerald-500/20" : "bg-rose-500/10 border-rose-500/20"
+                    "p-5 rounded-2xl border flex items-center gap-5 transition-all",
+                    historyAsset?.status === 'Active' ? "bg-emerald-500/5 border-emerald-500/20 shadow-sm shadow-emerald-500/5" : "bg-rose-500/5 border-rose-500/20 shadow-sm shadow-rose-500/5"
                   )}>
                     <div className={cn(
-                      "w-12 h-12 rounded-xl flex items-center justify-center shadow-sm",
-                      historyAsset?.status === 'Active' ? "bg-emerald-500" : "bg-rose-500"
+                      "w-14 h-14 rounded-2xl flex items-center justify-center shadow-lg shrink-0",
+                      historyAsset?.status === 'Active' ? "bg-emerald-500 shadow-emerald-500/20" : "bg-rose-500 shadow-rose-500/20"
                     )}>
-                      <Activity className="w-6 h-6 text-white" />
+                      <Activity className="w-7 h-7 text-white" />
                     </div>
-                    <div>
-                      <p className="text-sm font-bold text-foreground">Current Operational Status: {historyAsset?.status}</p>
-                      <p className="text-xs text-muted-foreground">
+                    <div className="flex flex-col gap-1">
+                      <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Current Operational Status</p>
+                      <p className="text-base font-bold text-foreground">{historyAsset?.status}</p>
+                      <p className="text-[11px] text-muted-foreground leading-relaxed">
                         {historyAsset?.status === 'Active' 
-                          ? "This asset is currently healthy and providing services." 
-                          : "This asset is offline. Downstream services may be degraded."}
+                          ? "This asset is currently healthy and providing services to downstream dependencies." 
+                          : "This asset is offline. All downstream services and dependent CIs are at risk."}
                       </p>
                     </div>
                   </div>
 
-                  <div className="space-y-4">
-                    <div className="flex items-center gap-2 text-foreground">
-                      <Zap className="w-4 h-4 text-amber-500" />
-                      <h4 className="text-xs font-bold uppercase tracking-wider">Downstream Impact Path</h4>
+                  <div className="space-y-5">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2 text-foreground">
+                        <Zap className="w-4 h-4 text-amber-500" />
+                        <h4 className="text-[10px] font-bold uppercase tracking-widest">Downstream Impact Path</h4>
+                      </div>
+                      <Badge variant="outline" className="text-[9px] font-bold bg-muted border-border">REAL-TIME ANALYSIS</Badge>
                     </div>
 
-                    <div className="space-y-3">
+                    <div className="space-y-4 relative before:absolute before:left-4 before:top-8 before:bottom-0 before:w-0.5 before:bg-border/50">
                       {/* Direct Dependencies */}
                       {assets.filter(a => a.relatedAssets?.some(r => r.targetAssetId === historyAsset?.id && (r.type === 'Depends On' || r.type === 'Child'))).length > 0 ? (
                         assets.filter(a => a.relatedAssets?.some(r => r.targetAssetId === historyAsset?.id && (r.type === 'Depends On' || r.type === 'Child'))).map((affected, i) => (
-                          <div key={i} className="flex items-start gap-4 group">
-                            <div className="flex flex-col items-center">
-                              <div className="w-8 h-8 rounded-lg bg-muted flex items-center justify-center border border-border">
-                                <Package className="w-4 h-4 text-muted-foreground" />
-                              </div>
-                              <div className="w-0.5 h-8 bg-border group-last:hidden" />
+                          <div key={i} className="relative flex items-start gap-6 group">
+                            <div className="mt-1 w-8 h-8 rounded-xl bg-card border border-border flex items-center justify-center shadow-sm z-10 group-hover:border-rose-500/30 transition-colors">
+                              <Package className="w-4 h-4 text-muted-foreground group-hover:text-rose-500 transition-colors" />
                             </div>
-                            <div className="flex-1 pt-1">
-                              <div className="flex items-center justify-between">
+                            <div className="flex-1 p-4 rounded-2xl bg-muted/30 border border-transparent hover:border-border hover:bg-muted/50 transition-all">
+                              <div className="flex items-center justify-between gap-4 mb-1">
                                 <span className="text-xs font-bold text-foreground">{affected.name}</span>
-                                <Badge variant="outline" className="text-[9px] font-bold border-rose-500/20 text-rose-600 dark:text-rose-400 bg-rose-500/10">CRITICAL IMPACT</Badge>
+                                <Badge variant="outline" className="text-[9px] font-bold border-rose-500/30 text-rose-600 dark:text-rose-400 bg-rose-500/10 px-2">CRITICAL IMPACT</Badge>
                               </div>
-                              <p className="text-[10px] text-muted-foreground mt-0.5">
+                              <p className="text-[10px] text-muted-foreground uppercase tracking-tight font-medium">
                                 {affected.category} • {affected.relatedAssets?.find(r => r.targetAssetId === historyAsset?.id)?.type === 'Depends On' ? 'Direct Dependency' : 'Component of Parent'}
                               </p>
                               
-                              {/* Second Level Impact (Simple recursion simulation) */}
+                              {/* Second Level Impact */}
                               {assets.filter(a => a.relatedAssets?.some(r => r.targetAssetId === affected.id && r.type === 'Depends On')).map((cascading, j) => (
-                                <div key={j} className="mt-3 ml-4 flex items-center gap-3 p-2 rounded-lg bg-muted/50 border border-border">
-                                  <ArrowRight className="w-3 h-3 text-muted-foreground/30" />
-                                  <div className="flex flex-col">
-                                    <span className="text-[11px] font-semibold text-muted-foreground">{cascading.name}</span>
-                                    <span className="text-[9px] text-muted-foreground/50 uppercase font-bold">Cascading Failure Risk</span>
+                                <div key={j} className="mt-4 ml-2 flex items-center gap-3 p-3 rounded-xl bg-card/50 border border-border/50">
+                                  <ArrowRight className="w-3.5 h-3.5 text-muted-foreground/40" />
+                                  <div className="flex flex-col gap-0.5">
+                                    <span className="text-[11px] font-bold text-muted-foreground">{cascading.name}</span>
+                                    <span className="text-[9px] text-muted-foreground/60 uppercase font-bold tracking-tighter">Cascading Failure Risk</span>
                                   </div>
                                 </div>
                               ))}
@@ -593,19 +657,21 @@ export default function AssetList({ assets, baselines, onAdd, onEdit, onDelete, 
                           </div>
                         ))
                       ) : (
-                        <div className="flex flex-col items-center justify-center py-12 bg-muted/30 rounded-2xl border border-dashed border-border">
-                          <CheckCircle2 className="w-8 h-8 text-emerald-500 mb-2 opacity-50" />
-                          <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider">No Downstream Dependencies</p>
-                          <p className="text-[10px] text-muted-foreground">Failure of this asset has no direct impact on other tracked CIs.</p>
+                        <div className="flex flex-col items-center justify-center py-16 bg-muted/20 rounded-3xl border border-dashed border-border/60">
+                          <div className="w-12 h-12 rounded-full bg-emerald-500/10 flex items-center justify-center mb-4">
+                            <CheckCircle2 className="w-6 h-6 text-emerald-500 opacity-60" />
+                          </div>
+                          <p className="text-xs font-bold text-muted-foreground uppercase tracking-widest">Isolated CI</p>
+                          <p className="text-[10px] text-muted-foreground/60 mt-1">Failure of this asset has no direct downstream impact.</p>
                         </div>
                       )}
                     </div>
                   </div>
 
-                  <div className="p-4 rounded-xl bg-slate-900 dark:bg-black text-white space-y-2">
+                  <div className="p-5 rounded-2xl bg-slate-950 text-white space-y-3 shadow-xl shadow-slate-950/20">
                     <div className="flex items-center gap-2">
-                      <AlertOctagon className="w-4 h-4 text-rose-500" />
-                      <span className="text-[10px] font-bold uppercase tracking-widest">Incident Response Recommendation</span>
+                      <div className="w-2 h-2 rounded-full bg-rose-500 animate-pulse" />
+                      <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Incident Response Protocol</span>
                     </div>
                     <p className="text-xs text-slate-300 leading-relaxed">
                       {historyAsset?.status === 'Active' 
@@ -616,12 +682,18 @@ export default function AssetList({ assets, baselines, onAdd, onEdit, onDelete, 
                 </div>
               </TabsContent>
 
-              <TabsContent value="compliance" className="mt-0">
-                <div className="space-y-6">
+              <TabsContent value="compliance" className="mt-0 outline-none">
+                <div className="space-y-6 max-h-[450px] overflow-y-auto pr-4 -mr-4">
                   {historyAsset?.baselineId ? (
                     (() => {
                       const baseline = baselines.find(b => b.id === historyAsset.baselineId);
-                      if (!baseline) return <p className="text-center text-xs text-muted-foreground py-8">Assigned baseline not found.</p>;
+                      if (!baseline) return (
+                        <div className="flex flex-col items-center justify-center py-12 text-center">
+                          <ShieldAlert className="w-12 h-12 text-muted-foreground/20 mb-4" />
+                          <p className="text-sm font-bold text-muted-foreground uppercase tracking-wider">Baseline Not Found</p>
+                          <p className="text-xs text-muted-foreground/60">The assigned baseline record has been deleted.</p>
+                        </div>
+                      );
 
                       const deviations: string[] = [];
                       if (baseline.expectedVendor && historyAsset.vendor !== baseline.expectedVendor) {
@@ -642,85 +714,99 @@ export default function AssetList({ assets, baselines, onAdd, onEdit, onDelete, 
                                           historyAsset.compliance?.warrantyStatus !== 'Expired';
 
                       return (
-                        <div className="space-y-6 max-h-[450px] overflow-y-auto pr-2">
+                        <div className="space-y-6">
                           <div className={cn(
-                            "p-6 rounded-2xl border flex items-center gap-4",
-                            isCompliant ? "bg-emerald-500/10 border-emerald-500/20" : "bg-rose-500/10 border-rose-500/20"
+                            "p-6 rounded-2xl border flex items-center gap-5 transition-all",
+                            isCompliant ? "bg-emerald-500/5 border-emerald-500/20 shadow-sm shadow-emerald-500/5" : "bg-rose-500/5 border-rose-500/20 shadow-sm shadow-rose-500/5"
                           )}>
                             <div className={cn(
-                              "w-12 h-12 rounded-xl flex items-center justify-center shadow-sm",
-                              isCompliant ? "bg-emerald-500" : "bg-rose-500"
+                              "w-14 h-14 rounded-2xl flex items-center justify-center shadow-lg shrink-0",
+                              isCompliant ? "bg-emerald-500 shadow-emerald-500/20" : "bg-rose-500 shadow-rose-500/20"
                             )}>
-                              {isCompliant ? <ShieldCheck className="w-6 h-6 text-white" /> : <ShieldAlert className="w-6 h-6 text-white" />}
+                              {isCompliant ? <ShieldCheck className="w-7 h-7 text-white" /> : <ShieldAlert className="w-7 h-7 text-white" />}
                             </div>
-                            <div>
-                              <p className="text-sm font-bold text-foreground">
+                            <div className="flex flex-col gap-1">
+                              <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Compliance Posture</p>
+                              <p className="text-base font-bold text-foreground">
                                 {isCompliant ? "Asset Fully Compliant" : "Compliance Issues Detected"}
                               </p>
-                              <p className="text-xs text-muted-foreground">
+                              <p className="text-[11px] text-muted-foreground">
                                 Last Audit: <span className="font-bold text-foreground">{historyAsset.compliance?.lastAuditDate ? format(historyAsset.compliance.lastAuditDate.toDate(), 'MMM d, yyyy') : 'Never'}</span>
                               </p>
                             </div>
                           </div>
 
-                          <div className="space-y-4">
-                            <h4 className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Governance & Licensing</h4>
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                              <div className="p-3 rounded-xl bg-muted/30 border border-border space-y-1">
-                                <div className="flex items-center justify-between">
-                                  <span className="text-[10px] font-bold uppercase text-muted-foreground">License Status</span>
-                                  {historyAsset.compliance?.licenseStatus === 'Valid' ? 
-                                    <CheckCircle2 className="w-3 h-3 text-emerald-500" /> : 
-                                    <AlertOctagon className="w-3 h-3 text-rose-500" />
-                                  }
-                                </div>
-                                <p className="text-xs font-bold text-foreground">{historyAsset.compliance?.licenseStatus || 'N/A'}</p>
-                                <p className="text-[10px] text-muted-foreground font-mono truncate">{historyAsset.compliance?.licenseKey || 'No key stored'}</p>
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div className="p-4 rounded-2xl bg-muted/30 border border-border space-y-3">
+                              <div className="flex items-center justify-between">
+                                <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Licensing</span>
+                                {historyAsset.compliance?.licenseStatus === 'Valid' ? 
+                                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" /> : 
+                                  <AlertOctagon className="w-3.5 h-3.5 text-rose-500" />
+                                }
                               </div>
-                              <div className="p-3 rounded-xl bg-muted/30 border border-border space-y-1">
-                                <div className="flex items-center justify-between">
-                                  <span className="text-[10px] font-bold uppercase text-muted-foreground">Warranty Status</span>
-                                  {historyAsset.compliance?.warrantyStatus === 'Active' ? 
-                                    <CheckCircle2 className="w-3 h-3 text-emerald-500" /> : 
-                                    <AlertOctagon className="w-3 h-3 text-rose-500" />
-                                  }
-                                </div>
+                              <div className="space-y-1">
+                                <p className="text-xs font-bold text-foreground">{historyAsset.compliance?.licenseStatus || 'N/A'}</p>
+                                <p className="text-[10px] font-mono text-muted-foreground truncate bg-card/50 p-1 rounded border border-border/50">{historyAsset.compliance?.licenseKey || 'No key stored'}</p>
+                              </div>
+                            </div>
+                            <div className="p-4 rounded-2xl bg-muted/30 border border-border space-y-3">
+                              <div className="flex items-center justify-between">
+                                <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Warranty</span>
+                                {historyAsset.compliance?.warrantyStatus === 'Active' ? 
+                                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" /> : 
+                                  <AlertOctagon className="w-3.5 h-3.5 text-rose-500" />
+                                }
+                              </div>
+                              <div className="space-y-1">
                                 <p className="text-xs font-bold text-foreground">{historyAsset.compliance?.warrantyStatus || 'N/A'}</p>
-                                <p className="text-[10px] text-muted-foreground">Expires: {historyAsset.warrantyExpiry || 'N/A'}</p>
+                                <p className="text-[10px] text-muted-foreground">Expires: <span className="font-semibold text-foreground">{historyAsset.warrantyExpiry || 'N/A'}</span></p>
                               </div>
                             </div>
                           </div>
 
                           <div className="space-y-4">
-                            <h4 className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Baseline Compliance Audit</h4>
+                            <div className="flex items-center justify-between">
+                              <h4 className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Baseline Audit Results</h4>
+                              <Badge variant="secondary" className="text-[9px] font-bold uppercase tracking-tighter">{baseline.name}</Badge>
+                            </div>
                             <div className="space-y-2">
                               {/* Vendor Check */}
-                              <div className="flex items-center justify-between p-3 rounded-xl bg-muted/30 border border-border">
-                                <span className="text-xs font-semibold text-muted-foreground">Vendor Standard</span>
+                              <div className="flex items-center justify-between p-4 rounded-2xl bg-card border border-border hover:bg-muted/30 transition-colors group">
+                                <div className="flex flex-col gap-0.5">
+                                  <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Vendor Standard</span>
+                                  <span className="text-xs font-semibold text-foreground">{baseline.expectedVendor || 'Not defined'}</span>
+                                </div>
                                 {baseline.expectedVendor ? (
                                   historyAsset.vendor === baseline.expectedVendor ? 
-                                    <CheckCircle2 className="w-4 h-4 text-emerald-500" /> : 
-                                    <Badge variant="destructive" className="text-[9px] font-bold">NON-COMPLIANT</Badge>
-                                ) : <span className="text-[10px] text-muted-foreground italic">Not defined</span>}
+                                    <CheckCircle2 className="w-5 h-5 text-emerald-500" /> : 
+                                    <Badge variant="destructive" className="text-[9px] font-bold px-2">DEVIATION</Badge>
+                                ) : null}
                               </div>
 
                               {/* Model Check */}
-                              <div className="flex items-center justify-between p-3 rounded-xl bg-muted/30 border border-border">
-                                <span className="text-xs font-semibold text-muted-foreground">Model Standard</span>
+                              <div className="flex items-center justify-between p-4 rounded-2xl bg-card border border-border hover:bg-muted/30 transition-colors group">
+                                <div className="flex flex-col gap-0.5">
+                                  <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Model Standard</span>
+                                  <span className="text-xs font-semibold text-foreground">{baseline.expectedModel || 'Not defined'}</span>
+                                </div>
                                 {baseline.expectedModel ? (
                                   historyAsset.model === baseline.expectedModel ? 
-                                    <CheckCircle2 className="w-4 h-4 text-emerald-500" /> : 
-                                    <Badge variant="destructive" className="text-[9px] font-bold">NON-COMPLIANT</Badge>
-                                ) : <span className="text-[10px] text-muted-foreground italic">Not defined</span>}
+                                    <CheckCircle2 className="w-5 h-5 text-emerald-500" /> : 
+                                    <Badge variant="destructive" className="text-[9px] font-bold px-2">DEVIATION</Badge>
+                                ) : null}
                               </div>
 
                               {/* Specs Check */}
                               {Object.entries(baseline.requiredSpecs || {}).map(([k, v]) => (
-                                <div key={k} className="flex items-center justify-between p-3 rounded-xl bg-muted/30 border border-border">
-                                  <span className="text-xs font-semibold text-muted-foreground">Spec: {k} ({v})</span>
+                                <div key={k} className="flex items-center justify-between p-4 rounded-2xl bg-card border border-border hover:bg-muted/30 transition-colors group">
+                                  <div className="flex flex-col gap-0.5">
+                                    <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Spec: {k}</span>
+                                    <span className="text-xs font-semibold text-foreground">Expected: {v}</span>
+                                  </div>
                                   {historyAsset.specs?.[k] === v ? 
-                                    <CheckCircle2 className="w-4 h-4 text-emerald-500" /> : 
-                                    <Badge variant="destructive" className="text-[9px] font-bold">NON-COMPLIANT</Badge>
+                                    <CheckCircle2 className="w-5 h-5 text-emerald-500" /> : 
+                                    <Badge variant="destructive" className="text-[9px] font-bold px-2">DEVIATION</Badge>
                                   }
                                 </div>
                               ))}
@@ -728,13 +814,18 @@ export default function AssetList({ assets, baselines, onAdd, onEdit, onDelete, 
                           </div>
 
                           {!isCompliant && (
-                            <div className="p-4 rounded-xl bg-rose-900 text-white space-y-2">
+                            <div className="p-5 rounded-2xl bg-rose-950 text-white space-y-3 shadow-xl shadow-rose-950/20">
                               <div className="flex items-center gap-2">
-                                <AlertOctagon className="w-4 h-4 text-rose-400" />
-                                <span className="text-[10px] font-bold uppercase tracking-widest">Remediation Required</span>
+                                <ShieldAlert className="w-4 h-4 text-rose-400" />
+                                <span className="text-[10px] font-bold uppercase tracking-widest text-rose-300">Remediation Required</span>
                               </div>
-                              <ul className="text-[11px] text-rose-100 list-disc list-inside space-y-1">
-                                {deviations.map((d, i) => <li key={i}>{d}</li>)}
+                              <ul className="space-y-2">
+                                {deviations.map((d, i) => (
+                                  <li key={i} className="flex items-start gap-2 text-[11px] text-rose-100/80">
+                                    <div className="w-1 h-1 rounded-full bg-rose-400 mt-1.5 shrink-0" />
+                                    {d}
+                                  </li>
+                                ))}
                               </ul>
                             </div>
                           )}
@@ -742,10 +833,12 @@ export default function AssetList({ assets, baselines, onAdd, onEdit, onDelete, 
                       );
                     })()
                   ) : (
-                    <div className="flex flex-col items-center justify-center py-12 bg-muted/30 rounded-2xl border border-dashed border-border">
-                      <ShieldCheck className="w-8 h-8 text-muted-foreground mb-2 opacity-50" />
-                      <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider">No Baseline Assigned</p>
-                      <p className="text-[10px] text-muted-foreground">Assign a configuration baseline to enable compliance tracking.</p>
+                    <div className="flex flex-col items-center justify-center py-16 bg-muted/20 rounded-3xl border border-dashed border-border/60">
+                      <div className="w-12 h-12 rounded-full bg-muted flex items-center justify-center mb-4">
+                        <ShieldCheck className="w-6 h-6 text-muted-foreground opacity-40" />
+                      </div>
+                      <p className="text-xs font-bold text-muted-foreground uppercase tracking-widest">No Baseline Assigned</p>
+                      <p className="text-[10px] text-muted-foreground/60 mt-1">Assign a configuration baseline to enable compliance tracking.</p>
                     </div>
                   )}
                 </div>
