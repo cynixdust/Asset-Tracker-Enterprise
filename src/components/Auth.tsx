@@ -94,20 +94,37 @@ export default function Auth() {
           console.log('signInWithEmailAndPassword success');
           toast.success('Welcome back!', { id: 'auth-toast' });
         } catch (loginErr: any) {
-          console.log('Login failed with code:', loginErr.code);
-          // Handle both 'user-not-found' and 'invalid-credential'
-          const isNotFound = loginErr.code === 'auth/user-not-found' || 
-                            loginErr.code === 'auth/invalid-credential' ||
-                            loginErr.message.includes('invalid-credential');
+          console.log('Login failed details:', { code: loginErr.code, message: loginErr.message });
           
-          if (isAdminAccount && isNotFound) {
-            console.log('Admin account not found, attempting to bootstrap...');
-            toast.loading('Bootstrapping admin account...', { id: 'auth-toast' });
-            const userCredential = await createUserWithEmailAndPassword(auth, loginEmail, loginPassword);
-            console.log('createUserWithEmailAndPassword success');
-            await updateProfile(userCredential.user, { displayName: 'Administrator' });
-            await createProfile(userCredential.user);
-            toast.success('Admin account bootstrapped successfully!', { id: 'auth-toast' });
+          // Improved check for "Not Found" or "Invalid Creds"
+          const errCode = loginErr.code || '';
+          const errMsg = loginErr.message || '';
+          const isInvalidOrNotFound = 
+            errCode === 'auth/user-not-found' || 
+            errCode === 'auth/invalid-credential' || 
+            errCode === 'auth/invalid-login-credentials' ||
+            errMsg.toLowerCase().includes('invalid-credential') ||
+            errMsg.toLowerCase().includes('user-not-found');
+          
+          if (isAdminAccount && isInvalidOrNotFound) {
+            console.log('Admin account credentials invalid or not found, attempting to bootstrap/reset...');
+            toast.loading('Provisioning admin account...', { id: 'auth-toast' });
+            
+            try {
+              // Try to create it. If it exists, this will fail.
+              const userCredential = await createUserWithEmailAndPassword(auth, loginEmail, loginPassword);
+              console.log('createUserWithEmailAndPassword success for admin');
+              await updateProfile(userCredential.user, { displayName: 'Administrator' });
+              await createProfile(userCredential.user);
+              toast.success('Admin account created successfully!', { id: 'auth-toast' });
+            } catch (createErr: any) {
+              console.log('Admin creation failed:', createErr.code);
+              // If it already exists, then the password was just wrong?
+              if (createErr.code === 'auth/email-already-in-use') {
+                throw new Error('Admin account exists but password/credentials are incorrect. Use "Reset System" if you are locked out.');
+              }
+              throw createErr;
+            }
           } else {
             throw loginErr;
           }
@@ -126,18 +143,40 @@ export default function Auth() {
       }
     } catch (error: any) {
       console.error('Final Auth Error Catch:', error);
-      let message = error.message;
-      if (error.code === 'auth/invalid-email') message = 'Please enter a valid email or username';
-      if (error.code === 'auth/weak-password') message = 'Password must be at least 6 characters';
-      if (error.code === 'auth/user-not-found' || error.code === 'auth/invalid-credential') {
-        message = 'Incorrect username or password';
-      }
-      if (error.code === 'auth/wrong-password') message = 'Incorrect password';
-      if (error.code === 'auth/email-already-in-use') message = 'This username or email is already registered. Please sign in instead.';
       
-      toast.error(message || 'Authentication failed. Check console for details.', { id: 'auth-toast' });
-      // Fallback alert for environments where toasts might be failing
-      if (!message) window.alert('Auth Error: ' + error.message);
+      const errCode = error.code || '';
+      const errMsg = error.message || '';
+      let message = errMsg;
+
+      // Handle specific codes with friendly messages
+      if (errCode === 'auth/invalid-email') {
+        message = 'Please enter a valid email address.';
+      } else if (errCode === 'auth/weak-password') {
+        message = 'Password must be at least 6 characters.';
+      } else if (
+        errCode === 'auth/user-not-found' || 
+        errCode === 'auth/invalid-credential' || 
+        errCode === 'auth/invalid-login-credentials' || 
+        errCode === 'auth/wrong-password' ||
+        errMsg.toLowerCase().includes('invalid-credential')
+      ) {
+        if (isLogin) {
+          message = 'Incorrect username or password. Check your credentials and try again.';
+        } else {
+          message = 'Authentication failed. Please check if this email matches system requirements.';
+        }
+      } else if (errCode === 'auth/email-already-in-use') {
+        message = 'This identity is already registered. Please sign in instead.';
+      } else if (errCode === 'auth/too-many-requests') {
+        message = 'Too many failed attempts. Access temporarily locked for security. Please try again later or reset password.';
+      }
+      
+      toast.error(message, { id: 'auth-toast' });
+      
+      // Fallback for console visibility if troubleshooting
+      if (typeof window !== 'undefined' && (errCode === 'auth/internal-error')) {
+        console.warn('System might be experiencing high load or connection issues.');
+      }
     } finally {
       console.log('handleEmailAuth finished');
       setLoading(false);

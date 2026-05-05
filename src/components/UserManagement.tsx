@@ -9,7 +9,9 @@ import {
   User as UserIcon,
   ShieldAlert,
   ShieldCheck,
-  Lock
+  Lock,
+  Pencil,
+  Key
 } from 'lucide-react';
 import { 
   Table, 
@@ -46,17 +48,20 @@ import {
 } from '@/components/ui/select';
 import { UserProfile } from '@/src/types';
 import { firestoreService } from '@/src/lib/firestore';
+import { auth as mainAuth } from '@/src/firebase';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { initializeApp, deleteApp } from 'firebase/app';
-import { getAuth, createUserWithEmailAndPassword, signOut, updateProfile } from 'firebase/auth';
+import { getAuth, createUserWithEmailAndPassword, signOut, updateProfile, sendPasswordResetEmail } from 'firebase/auth';
 import firebaseConfig from '../../firebase-applet-config.json';
 
 export default function UserManagement() {
   const [users, setUsers] = React.useState<UserProfile[]>([]);
   const [loading, setLoading] = React.useState(true);
   const [isAddUserOpen, setIsAddUserOpen] = React.useState(false);
+  const [isEditUserOpen, setIsEditUserOpen] = React.useState(false);
+  const [editingUser, setEditingUser] = React.useState<UserProfile | null>(null);
   const [newUser, setNewUser] = React.useState({
     email: '',
     password: '',
@@ -64,6 +69,7 @@ export default function UserManagement() {
     role: 'user' as 'admin' | 'user'
   });
   const [processing, setProcessing] = React.useState(false);
+  const [manualPassword, setManualPassword] = React.useState('');
 
   React.useEffect(() => {
     const unsubscribe = firestoreService.subscribe('users', (data) => {
@@ -123,6 +129,64 @@ export default function UserManagement() {
       toast.success('User role updated');
     } catch (error) {
       toast.error('Failed to update role');
+    }
+  };
+
+  const handleEditUser = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingUser) return;
+    setProcessing(true);
+    try {
+      await firestoreService.update('users', editingUser.uid, {
+        username: editingUser.username,
+        displayName: editingUser.displayName,
+        email: editingUser.email,
+        role: editingUser.role
+      });
+      
+      // If a manual password was entered, update it too
+      if (manualPassword.trim()) {
+        await handleManualPasswordChange(editingUser.uid, manualPassword);
+      }
+      
+      toast.success('User profile updated successfully');
+      setIsEditUserOpen(false);
+      setManualPassword('');
+    } catch (error: any) {
+      toast.error(error.message || 'Failed to update user');
+    } finally {
+      setProcessing(false);
+    }
+  };
+
+  const handleManualPasswordChange = async (uid: string, newPass: string) => {
+    try {
+      const adminToken = await mainAuth.currentUser?.getIdToken();
+      if (!adminToken) throw new Error("Could not verify administrative identity.");
+
+      const response = await fetch('/api/admin/update-password', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ uid, newPassword: newPass, adminToken })
+      });
+
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || 'Password update failed');
+      
+      toast.success('Password updated successfully');
+    } catch (error: any) {
+      console.error(error);
+      toast.error(error.message || 'Manual password change failed');
+      throw error; // Let the caller handle it
+    }
+  };
+
+  const handlePasswordReset = async (email: string) => {
+    try {
+      await sendPasswordResetEmail(mainAuth, email);
+      toast.success(`Password reset email sent to ${email}`);
+    } catch (error: any) {
+      toast.error(error.message || 'Failed to send reset email');
     }
   };
 
@@ -203,10 +267,27 @@ export default function UserManagement() {
                   <DropdownMenuContent align="end" className="w-48 rounded-lg shadow-xl border-border bg-card text-card-foreground">
                     <DropdownMenuItem 
                       className="gap-2 cursor-pointer text-xs font-medium"
+                      onClick={() => {
+                        setEditingUser({ ...user });
+                        setIsEditUserOpen(true);
+                      }}
+                    >
+                      <Pencil className="w-3.5 h-3.5" /> 
+                      Edit User Info
+                    </DropdownMenuItem>
+                    <DropdownMenuItem 
+                      className="gap-2 cursor-pointer text-xs font-medium"
                       onClick={() => handleUpdateRole(user.uid, user.role === 'admin' ? 'user' : 'admin')}
                     >
                       <Shield className="w-3.5 h-3.5" /> 
                       Make {user.role === 'admin' ? 'User' : 'Admin'}
+                    </DropdownMenuItem>
+                    <DropdownMenuItem 
+                      className="gap-2 cursor-pointer text-xs font-medium"
+                      onClick={() => handlePasswordReset(user.email)}
+                    >
+                      <Key className="w-3.5 h-3.5" /> 
+                      Send Reset Email
                     </DropdownMenuItem>
                     <DropdownMenuSeparator />
                     <DropdownMenuItem 
@@ -223,6 +304,112 @@ export default function UserManagement() {
         </TableBody>
       </Table>
     </div>
+
+    <Dialog open={isEditUserOpen} onOpenChange={setIsEditUserOpen}>
+      <DialogContent className="sm:max-w-[425px] rounded-xl bg-card text-card-foreground border-border">
+        <DialogHeader>
+          <DialogTitle className="text-xl font-bold">Edit User Profile</DialogTitle>
+          <DialogDescription className="text-muted-foreground">
+            Update account information for this user.
+          </DialogDescription>
+        </DialogHeader>
+        {editingUser && (
+          <form onSubmit={handleEditUser} className="space-y-4 py-4">
+            <div className="space-y-2">
+              <label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Display Name</label>
+              <Input 
+                placeholder="John Doe" 
+                className="h-10 bg-muted/50 border-border shadow-none text-sm focus:bg-card"
+                value={editingUser.displayName || ''}
+                onChange={(e) => setEditingUser({...editingUser, displayName: e.target.value})}
+                required
+              />
+            </div>
+            <div className="space-y-2">
+              <label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Username</label>
+              <Input 
+                placeholder="jdoe" 
+                className="h-10 bg-muted/50 border-border shadow-none text-sm focus:bg-card"
+                value={editingUser.username || ''}
+                onChange={(e) => setEditingUser({...editingUser, username: e.target.value})}
+                required
+              />
+            </div>
+            <div className="space-y-2">
+              <label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Email Address</label>
+              <Input 
+                type="email"
+                placeholder="john@example.com" 
+                className="h-10 bg-muted/50 border-border shadow-none text-sm focus:bg-card"
+                value={editingUser.email || ''}
+                onChange={(e) => setEditingUser({...editingUser, email: e.target.value})}
+                required
+              />
+            </div>
+            <div className="space-y-2">
+              <label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Role</label>
+              <Select 
+                value={editingUser.role} 
+                onValueChange={(v: any) => setEditingUser({...editingUser, role: v})}
+              >
+                <SelectTrigger className="h-10 bg-muted/50 border-border shadow-none text-sm focus:bg-card">
+                  <SelectValue placeholder="Select role" />
+                </SelectTrigger>
+                <SelectContent className="bg-card text-card-foreground border-border">
+                  <SelectItem value="user">User</SelectItem>
+                  <SelectItem value="admin">Admin</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">New Password (Manual Override)</label>
+              <div className="relative group">
+                <Input 
+                  type="password"
+                  placeholder="Leave blank to keep current" 
+                  className="h-10 bg-muted/50 border-border shadow-none text-sm focus:bg-card pr-10"
+                  value={manualPassword}
+                  onChange={(e) => setManualPassword(e.target.value)}
+                />
+                <Lock className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground/40 group-focus-within:text-primary transition-colors" />
+              </div>
+              <p className="text-[10px] text-muted-foreground">This will immediately overwrite the user's current password.</p>
+            </div>
+            <div className="pt-2">
+              <Button 
+                type="button" 
+                variant="outline" 
+                onClick={() => {
+                  handlePasswordReset(editingUser.email);
+                  setIsEditUserOpen(false);
+                }}
+                className="w-full h-10 border-border text-xs font-bold uppercase tracking-wider gap-2"
+              >
+                <Key className="w-3.5 h-3.5" />
+                Trigger Password Reset Email
+              </Button>
+            </div>
+            <DialogFooter className="pt-4">
+              <Button 
+                type="button" 
+                variant="outline" 
+                onClick={() => setIsEditUserOpen(false)}
+                className="h-10 border-border text-xs font-bold uppercase tracking-wider"
+              >
+                Cancel
+              </Button>
+              <Button 
+                type="submit" 
+                disabled={processing}
+                className="h-10 bg-primary text-primary-foreground text-xs font-bold uppercase tracking-wider shadow-none"
+              >
+                {processing ? 'Saving...' : 'Save Changes'}
+              </Button>
+            </DialogFooter>
+          </form>
+        )}
+      </DialogContent>
+    </Dialog>
 
     <Dialog open={isAddUserOpen} onOpenChange={setIsAddUserOpen}>
       <DialogContent className="sm:max-w-[425px] rounded-xl bg-card text-card-foreground border-border">

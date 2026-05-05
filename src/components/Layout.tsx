@@ -12,7 +12,9 @@ import {
   ShieldCheck,
   FileCheck,
   Users,
-  Search
+  Search,
+  PanelLeftClose,
+  PanelLeftOpen
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -32,6 +34,7 @@ interface LayoutProps {
 
 export default function Layout({ children, activeTab, setActiveTab, user }: LayoutProps) {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = React.useState(false);
+  const [isSidebarOpen, setIsSidebarOpen] = React.useState(true);
   const [logo, setLogo] = React.useState<string | null>(null);
 
   React.useEffect(() => {
@@ -108,8 +111,13 @@ export default function Layout({ children, activeTab, setActiveTab, user }: Layo
   return (
     <div className="flex h-screen bg-background text-foreground overflow-hidden">
       {/* Desktop Sidebar */}
-      <aside className="hidden lg:flex flex-col w-[240px] border-r border-border bg-sidebar">
-        <NavContent />
+      <aside className={cn(
+        "hidden lg:flex flex-col border-r border-border bg-sidebar transition-all duration-300 ease-in-out overflow-hidden",
+        isSidebarOpen ? "w-[240px]" : "w-0 border-r-0"
+      )}>
+        <div className="w-[240px] h-full flex flex-col">
+          <NavContent />
+        </div>
       </aside>
 
       {/* Mobile Sidebar */}
@@ -131,6 +139,17 @@ export default function Layout({ children, activeTab, setActiveTab, user }: Layo
             >
               <Menu className="w-6 h-6" />
             </Button>
+            
+            <Button 
+              variant="ghost" 
+              size="icon" 
+              className="hidden lg:flex text-muted-foreground hover:text-foreground"
+              onClick={() => setIsSidebarOpen(!isSidebarOpen)}
+              title={isSidebarOpen ? "Hide Menu" : "Show Menu"}
+            >
+              {isSidebarOpen ? <PanelLeftClose className="w-5 h-5" /> : <PanelLeftOpen className="w-5 h-5" />}
+            </Button>
+
             <div className="relative hidden md:block">
               <div className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground">
                 <Menu className="w-4 h-4" />
