@@ -170,16 +170,16 @@ export default function AssetForm({ open, onOpenChange, onSubmit, initialData, a
   React.useEffect(() => {
     if (initialData) {
       form.reset({
-        name: initialData.name,
-        assetTag: initialData.assetTag,
-        category: initialData.category,
+        name: initialData.name || '',
+        assetTag: initialData.assetTag || '',
+        category: initialData.category || 'Endpoint',
         vendor: initialData.vendor || '',
         model: initialData.model || '',
         serialNumber: initialData.serialNumber || '',
         purchaseDate: initialData.purchaseDate || '',
         warrantyExpiry: initialData.warrantyExpiry || '',
         nextMaintenanceDate: initialData.nextMaintenanceDate || '',
-        status: initialData.status,
+        status: initialData.status || 'Procurement',
         location: initialData.location || '',
         assignedTo: initialData.assignedTo || '',
         notes: initialData.notes || '',
@@ -257,10 +257,10 @@ export default function AssetForm({ open, onOpenChange, onSubmit, initialData, a
           <div className="px-8 md:px-12 pt-10 md:pt-12 pb-6 md:pb-8 border-b border-border bg-muted/30">
             <DialogHeader>
               <DialogTitle className="text-3xl md:text-4xl font-extrabold tracking-tight text-foreground">
-                {initialData ? 'Edit Asset' : 'Add New Asset'}
+                {initialData && initialData.id ? 'Edit Asset' : 'Add New Asset'}
               </DialogTitle>
               <DialogDescription className="text-muted-foreground text-base md:text-lg mt-2 font-medium">
-                {initialData ? 'Update the details of the existing asset.' : 'Enter the details of the new infrastructure asset.'}
+                {initialData && initialData.id ? 'Update the details of the existing asset.' : 'Enter the details of the new infrastructure asset.'}
               </DialogDescription>
             </DialogHeader>
           </div>
@@ -753,7 +753,7 @@ export default function AssetForm({ open, onOpenChange, onSubmit, initialData, a
                   disabled={isCheckingUniqueness}
                 >
                   {isCheckingUniqueness && <Loader2 className="w-5 h-5 mr-3 animate-spin" />}
-                  {initialData ? 'Update Asset Record' : 'Create Asset Record'}
+                  {initialData && initialData.id ? 'Update Asset Record' : 'Create Asset Record'}
                 </Button>
               </div>
             </form>

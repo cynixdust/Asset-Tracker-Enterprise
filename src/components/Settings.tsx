@@ -42,6 +42,7 @@ export default function Settings() {
   const [dbType, setDbType] = React.useState<'firestore' | 'sqlite' | 'postgres' | 'mariadb'>('firestore');
   const { theme, setTheme } = useTheme();
   const [notificationsEnabled, setNotificationsEnabled] = React.useState(true);
+  const [mapViewEnabled, setMapViewEnabled] = React.useState(true);
   const [logo, setLogo] = React.useState<string | null>(null);
   const fileInputRef = React.useRef<HTMLInputElement>(null);
 
@@ -52,6 +53,7 @@ export default function Settings() {
         if (settings) {
           if (settings.logo) setLogo(settings.logo);
           if (settings.notificationsEnabled !== undefined) setNotificationsEnabled(settings.notificationsEnabled);
+          if (settings.mapViewEnabled !== undefined) setMapViewEnabled(settings.mapViewEnabled);
         }
       } catch (error) {
         console.error('Error loading settings:', error);
@@ -86,6 +88,7 @@ export default function Settings() {
       await firestoreService.set('settings', 'general', {
         logo,
         notificationsEnabled,
+        mapViewEnabled,
         updatedAt: new Date()
       });
       toast.success('Settings saved successfully');
@@ -349,7 +352,47 @@ export default function Settings() {
                   <Label className="font-semibold">Email Notifications</Label>
                   <p className="text-xs text-muted-foreground">Alerts for warranty expiry</p>
                 </div>
-                <Switch checked={notificationsEnabled} onCheckedChange={setNotificationsEnabled} />
+                <Switch 
+                  checked={notificationsEnabled} 
+                  onCheckedChange={async (checked) => {
+                    setNotificationsEnabled(checked);
+                    try {
+                      await firestoreService.set('settings', 'general', {
+                        logo,
+                        notificationsEnabled: checked,
+                        mapViewEnabled,
+                        updatedAt: new Date()
+                      });
+                      toast.success(`Notifications ${checked ? 'enabled' : 'disabled'} successfully`);
+                    } catch (err) {
+                      toast.error('Failed to update notification settings');
+                    }
+                  }} 
+                />
+              </div>
+
+              <div className="flex items-center justify-between py-2 border-t border-border/40 pt-4">
+                <div className="space-y-0.5">
+                  <Label className="font-semibold">Enable Map View</Label>
+                  <p className="text-xs text-muted-foreground">Show physical locations on the interactive map tab</p>
+                </div>
+                <Switch 
+                  checked={mapViewEnabled} 
+                  onCheckedChange={async (checked) => {
+                    setMapViewEnabled(checked);
+                    try {
+                      await firestoreService.set('settings', 'general', {
+                        logo,
+                        notificationsEnabled,
+                        mapViewEnabled: checked,
+                        updatedAt: new Date()
+                      });
+                      toast.success(`Map View ${checked ? 'enabled' : 'disabled'} successfully`);
+                    } catch (err) {
+                      toast.error('Failed to update map view setting');
+                    }
+                  }} 
+                />
               </div>
 
               <div className="space-y-2">

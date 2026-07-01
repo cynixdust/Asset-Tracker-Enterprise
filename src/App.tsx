@@ -21,6 +21,8 @@ import DiscoveryManager from '@/src/components/DiscoveryManager';
 import ComplianceManager from '@/src/components/ComplianceManager';
 import UserManagement from '@/src/components/UserManagement';
 import Auth from '@/src/components/Auth';
+import MapView from '@/src/components/MapView';
+import MaintenanceCalendar from '@/src/components/MaintenanceCalendar';
 import { orderBy, arrayUnion } from 'firebase/firestore';
 
 export default function App() {
@@ -111,6 +113,18 @@ export default function App() {
       };
     }
   }, [user]);
+
+  React.useEffect(() => {
+    const handleRegisterTagEvent = (e: any) => {
+      if (e.detail?.tag) {
+        setActiveTab('assets');
+        setEditingAsset({ assetTag: e.detail.tag } as any);
+        setIsAssetFormOpen(true);
+      }
+    };
+    window.addEventListener('register-tag' as any, handleRegisterTagEvent);
+    return () => window.removeEventListener('register-tag' as any, handleRegisterTagEvent);
+  }, []);
 
   const handleAddAsset = async (data: any) => {
     console.log('Attempting to add asset:', data);
@@ -302,6 +316,27 @@ export default function App() {
             userRole={user.role}
           />
         );
+      case 'map':
+        return (
+          <MapView 
+            assets={assets} 
+            onEdit={(asset) => {
+              setEditingAsset(asset);
+              setIsAssetFormOpen(true);
+            }}
+          />
+        );
+      case 'calendar':
+        return (
+          <MaintenanceCalendar 
+            assets={assets} 
+            onEditAsset={(asset) => {
+              setEditingAsset(asset);
+              setIsAssetFormOpen(true);
+            }}
+            setActiveTab={setActiveTab}
+          />
+        );
       case 'audit':
         return <AuditLogs logs={auditLogs} />;
       case 'baselines':
@@ -320,13 +355,13 @@ export default function App() {
   };
 
   return (
-    <Layout activeTab={activeTab} setActiveTab={setActiveTab} user={user}>
+    <Layout activeTab={activeTab} setActiveTab={setActiveTab} user={user} assets={assets}>
       {renderContent()}
       
       <AssetForm 
         open={isAssetFormOpen} 
         onOpenChange={setIsAssetFormOpen} 
-        onSubmit={editingAsset ? handleUpdateAsset : handleAddAsset}
+        onSubmit={editingAsset && editingAsset.id ? handleUpdateAsset : handleAddAsset}
         initialData={editingAsset}
         allAssets={assets}
         baselines={baselines}

@@ -8,6 +8,7 @@ import {
   Trash2, 
   ExternalLink,
   Download,
+  Upload,
   FileSpreadsheet,
   Calendar as CalendarIcon,
   Package,
@@ -22,7 +23,8 @@ import {
   FileText,
   ShieldAlert,
   History,
-  Clock
+  Clock,
+  Printer
 } from 'lucide-react';
 import { 
   Table, 
@@ -63,6 +65,11 @@ import {
   TabsTrigger,
 } from "@/components/ui/tabs";
 import { Asset, AssetCategory, AssetStatus, StatusHistoryEntry, Baseline } from '@/src/types';
+import QRScanner from './QRScanner';
+import BulkImportModal from './BulkImportModal';
+import { generateAssetLabel, generateBulkAssetLabels } from '../utils/labelGenerator';
+import { generateSummaryReport } from '../utils/reportGenerator';
+import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 
@@ -81,11 +88,56 @@ export default function AssetList({ assets, baselines, onAdd, onEdit, onDelete, 
   const [statusFilter, setStatusFilter] = React.useState<string>('all');
   const [locationFilter, setLocationFilter] = React.useState<string>('all');
   const [complianceFilter, setComplianceFilter] = React.useState<string>('all');
+  const [warrantyFilter, setWarrantyFilter] = React.useState<string>('all');
   const [selectedAssetId, setSelectedAssetId] = React.useState<string | null>(null);
+  const [isImportModalOpen, setIsImportModalOpen] = React.useState(false);
   const historyAsset = React.useMemo(() => 
     assets.find(a => a.id === selectedAssetId) || null, 
     [assets, selectedAssetId]
   );
+
+  const getWarrantyRemainingDays = (expiryStr?: string): number | null => {
+    if (!expiryStr) return null;
+    try {
+      const expiryDate = new Date(expiryStr);
+      if (isNaN(expiryDate.getTime())) return null;
+      
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      expiryDate.setHours(0, 0, 0, 0);
+      
+      const diffTime = expiryDate.getTime() - today.getTime();
+      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+      return diffDays;
+    } catch (e) {
+      return null;
+    }
+  };
+
+  const isWarrantyExpiringSoon = (expiryStr?: string): boolean => {
+    const days = getWarrantyRemainingDays(expiryStr);
+    return days !== null && days >= 0 && days <= 30;
+  };
+
+  const expiringWarrantiesCount = React.useMemo(() => {
+    return assets.filter(a => isWarrantyExpiringSoon(a.warrantyExpiry)).length;
+  }, [assets]);
+
+  React.useEffect(() => {
+    const handleViewAssetEvent = (e: any) => {
+      if (e.detail?.assetId) {
+        setSelectedAssetId(e.detail.assetId);
+        setSearch('');
+        setCategoryFilter('all');
+        setStatusFilter('all');
+        setLocationFilter('all');
+        setComplianceFilter('all');
+        setWarrantyFilter('all');
+      }
+    };
+    window.addEventListener('view-asset' as any, handleViewAssetEvent);
+    return () => window.removeEventListener('view-asset' as any, handleViewAssetEvent);
+  }, []);
 
   const formatDate = (date: any) => {
     if (!date) return 'N/A';
@@ -152,13 +204,24 @@ export default function AssetList({ assets, baselines, onAdd, onEdit, onDelete, 
       (complianceFilter === 'compliant' && asset.compliance?.isCompliant !== false) ||
       (complianceFilter === 'non-compliant' && asset.compliance?.isCompliant === false);
 
-    return matchesSearch && matchesCategory && matchesStatus && matchesLocation && matchesCompliance;
+    let matchesWarranty = true;
+    if (warrantyFilter === 'expiring') {
+      matchesWarranty = isWarrantyExpiringSoon(asset.warrantyExpiry);
+    } else if (warrantyFilter === 'expired') {
+      const days = getWarrantyRemainingDays(asset.warrantyExpiry);
+      matchesWarranty = days !== null && days < 0;
+    } else if (warrantyFilter === 'active') {
+      const days = getWarrantyRemainingDays(asset.warrantyExpiry);
+      matchesWarranty = days !== null && days > 30;
+    }
+
+    return matchesSearch && matchesCategory && matchesStatus && matchesLocation && matchesCompliance && matchesWarranty;
   });
 
   // Reset to page 1 when filters change
   React.useEffect(() => {
     setCurrentPage(1);
-  }, [search, categoryFilter, statusFilter, locationFilter, complianceFilter]);
+  }, [search, categoryFilter, statusFilter, locationFilter, complianceFilter, warrantyFilter]);
 
   const totalPages = Math.ceil(filteredAssets.length / itemsPerPage);
   const paginatedAssets = filteredAssets.slice(
@@ -215,6 +278,7 @@ export default function AssetList({ assets, baselines, onAdd, onEdit, onDelete, 
               onChange={(e) => setSearch(e.target.value)}
             />
           </div>
+          <QRScanner iconOnly triggerClassName="h-10 w-10 flex-shrink-0 border-border bg-muted/60 text-muted-foreground hover:text-foreground hover:bg-muted" />
         </div>
         
         <div className="flex items-center gap-3 w-full md:w-auto">
@@ -222,11 +286,63 @@ export default function AssetList({ assets, baselines, onAdd, onEdit, onDelete, 
             <FileSpreadsheet className="w-4 h-4" />
             Export
           </Button>
+          <Button 
+            variant="outline" 
+            className="h-10 gap-2 border-border text-xs font-bold uppercase tracking-wider bg-muted/20 hover:bg-muted/40"
+            onClick={async () => {
+              if (filteredAssets.length === 0) {
+                toast.error('No assets in the current filter to generate a report');
+                return;
+              }
+              const filtersPayload = {
+                search,
+                category: categoryFilter,
+                status: statusFilter,
+                location: locationFilter,
+                compliance: complianceFilter,
+                warranty: warrantyFilter
+              };
+              const promise = generateSummaryReport(filteredAssets, filtersPayload);
+              toast.promise(promise, {
+                loading: 'Compiling inventory summary report...',
+                success: 'Summary PDF report generated successfully!',
+                error: 'Failed to generate summary PDF report'
+              });
+            }}
+          >
+            <FileText className="w-4 h-4" />
+            Summary Report
+          </Button>
           {userRole === 'admin' && (
-            <Button className="h-10 gap-2 bg-primary text-primary-foreground text-xs font-bold uppercase tracking-wider shadow-none" onClick={onAdd}>
-              <Plus className="w-4 h-4" />
-              Add Asset
-            </Button>
+            <>
+              <Button 
+                variant="outline" 
+                className="h-10 gap-2 border-border text-xs font-bold uppercase tracking-wider bg-muted/20" 
+                onClick={async () => {
+                  if (filteredAssets.length === 0) {
+                    toast.error('No assets in the current filter to print');
+                    return;
+                  }
+                  const promise = generateBulkAssetLabels(filteredAssets);
+                  toast.promise(promise, {
+                    loading: `Generating ${filteredAssets.length} bulk labels...`,
+                    success: 'Bulk labels PDF generated successfully!',
+                    error: 'Failed to generate bulk labels'
+                  });
+                }}
+              >
+                <Printer className="w-4 h-4" />
+                Print Labels ({filteredAssets.length})
+              </Button>
+              <Button variant="outline" className="h-10 gap-2 border-border text-xs font-bold uppercase tracking-wider bg-muted/20" onClick={() => setIsImportModalOpen(true)}>
+                <Upload className="w-4 h-4" />
+                Bulk Import
+              </Button>
+              <Button className="h-10 gap-2 bg-primary text-primary-foreground text-xs font-bold uppercase tracking-wider shadow-none" onClick={onAdd}>
+                <Plus className="w-4 h-4" />
+                Add Asset
+              </Button>
+            </>
           )}
         </div>
       </div>
@@ -281,6 +397,33 @@ export default function AssetList({ assets, baselines, onAdd, onEdit, onDelete, 
             <SelectItem value="non-compliant">Non-Compliant</SelectItem>
           </SelectContent>
         </Select>
+
+        <Select value={warrantyFilter} onValueChange={setWarrantyFilter}>
+          <SelectTrigger className="w-[160px] h-9 bg-card border-border text-[11px] font-semibold uppercase tracking-tight shadow-none">
+            <SelectValue placeholder="Warranty" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Warranties</SelectItem>
+            <SelectItem value="expiring">Expiring (30 Days)</SelectItem>
+            <SelectItem value="expired">Expired</SelectItem>
+            <SelectItem value="active">Active (&gt;30 Days)</SelectItem>
+          </SelectContent>
+        </Select>
+
+        {expiringWarrantiesCount > 0 && (
+          <button
+            onClick={() => setWarrantyFilter(warrantyFilter === 'expiring' ? 'all' : 'expiring')}
+            className={cn(
+              "flex items-center gap-1.5 px-3 h-9 text-[10px] font-bold uppercase tracking-wider rounded-lg border transition-all shadow-none cursor-pointer",
+              warrantyFilter === 'expiring'
+                ? "bg-amber-500 text-white border-amber-500 hover:bg-amber-600"
+                : "bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20 hover:bg-amber-500/20"
+            )}
+          >
+            <AlertOctagon className="w-3.5 h-3.5 text-amber-500" />
+            {expiringWarrantiesCount} Expiring Soon
+          </button>
+        )}
       </div>
 
       <div className="rounded-xl border border-border bg-card overflow-hidden shadow-none">
@@ -311,6 +454,24 @@ export default function AssetList({ assets, baselines, onAdd, onEdit, onDelete, 
                         )}
                       </div>
                       <span className="text-[11px] text-muted-foreground">{asset.vendor} {asset.model}</span>
+                      {isWarrantyExpiringSoon(asset.warrantyExpiry) && (
+                        <div className="flex items-center gap-1 mt-1 text-[10px] font-bold text-amber-600 dark:text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded-full w-fit">
+                          <AlertOctagon className="w-3 h-3 text-amber-500" />
+                          <span>Warranty expires in {getWarrantyRemainingDays(asset.warrantyExpiry)} days</span>
+                        </div>
+                      )}
+                      {(() => {
+                        const days = getWarrantyRemainingDays(asset.warrantyExpiry);
+                        if (days !== null && days < 0) {
+                          return (
+                            <div className="flex items-center gap-1 mt-1 text-[10px] font-bold text-rose-600 dark:text-rose-400 bg-rose-500/10 px-2 py-0.5 rounded-full w-fit">
+                              <AlertOctagon className="w-3 h-3 text-rose-500" />
+                              <span>Warranty expired {Math.abs(days)} days ago</span>
+                            </div>
+                          );
+                        }
+                        return null;
+                      })()}
                     </div>
                   </TableCell>
                   <TableCell>
@@ -336,6 +497,19 @@ export default function AssetList({ assets, baselines, onAdd, onEdit, onDelete, 
                         </DropdownMenuItem>
                         <DropdownMenuItem className="gap-2 cursor-pointer text-xs font-medium" onClick={() => setSelectedAssetId(asset.id || null)}>
                           <ExternalLink className="w-3.5 h-3.5" /> View History
+                        </DropdownMenuItem>
+                        <DropdownMenuItem 
+                          className="gap-2 cursor-pointer text-xs font-medium" 
+                          onClick={async () => {
+                            const promise = generateAssetLabel(asset);
+                            toast.promise(promise, {
+                              loading: `Generating label PDF for ${asset.assetTag}...`,
+                              success: 'Label PDF generated successfully!',
+                              error: 'Failed to generate label PDF'
+                            });
+                          }}
+                        >
+                          <Printer className="w-3.5 h-3.5" /> Print Label
                         </DropdownMenuItem>
                         {userRole === 'admin' && (
                           <>
@@ -401,10 +575,32 @@ export default function AssetList({ assets, baselines, onAdd, onEdit, onDelete, 
         <DialogContent className="max-w-2xl rounded-2xl border-none shadow-2xl p-0 overflow-hidden bg-card text-card-foreground">
           <div className="p-8">
             <DialogHeader className="mb-6">
-              <DialogTitle className="text-xl font-bold tracking-tight">Asset Details & Relationships</DialogTitle>
-              <DialogDescription className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
-                {historyAsset?.name} ({historyAsset?.assetTag})
-              </DialogDescription>
+              <div className="flex items-start justify-between">
+                <div className="space-y-1">
+                  <DialogTitle className="text-xl font-bold tracking-tight">Asset Details & Relationships</DialogTitle>
+                  <DialogDescription className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
+                    {historyAsset?.name} ({historyAsset?.assetTag})
+                  </DialogDescription>
+                </div>
+                {historyAsset && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-9 gap-1.5 border-border text-xs font-bold uppercase tracking-wider bg-muted/20 hover:bg-muted/40 cursor-pointer"
+                    onClick={async () => {
+                      const promise = generateAssetLabel(historyAsset);
+                      toast.promise(promise, {
+                        loading: `Generating label PDF for ${historyAsset.assetTag}...`,
+                        success: 'Label PDF generated successfully!',
+                        error: 'Failed to generate label PDF'
+                      });
+                    }}
+                  >
+                    <Printer className="w-3.5 h-3.5" />
+                    Print Label
+                  </Button>
+                )}
+              </div>
             </DialogHeader>
 
             <Tabs defaultValue="history" className="w-full">
@@ -903,6 +1099,14 @@ export default function AssetList({ assets, baselines, onAdd, onEdit, onDelete, 
           </div>
         </DialogContent>
       </Dialog>
+
+      <BulkImportModal
+        open={isImportModalOpen}
+        onOpenChange={setIsImportModalOpen}
+        existingAssets={assets}
+        baselines={baselines}
+        userRole={userRole}
+      />
     </div>
   );
 }

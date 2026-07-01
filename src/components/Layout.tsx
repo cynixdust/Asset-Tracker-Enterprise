@@ -14,7 +14,9 @@ import {
   Users,
   Search,
   PanelLeftClose,
-  PanelLeftOpen
+  PanelLeftOpen,
+  MapPin,
+  CalendarDays
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -24,30 +26,45 @@ import { auth } from '@/src/firebase';
 import { signOut } from 'firebase/auth';
 import { cn } from '@/lib/utils';
 import { firestoreService } from '@/src/lib/firestore';
+import QRScanner from './QRScanner';
+import NotificationCenter from './NotificationCenter';
+import { Asset } from '@/src/types';
 
 interface LayoutProps {
   children: React.ReactNode;
   activeTab: string;
   setActiveTab: (tab: string) => void;
   user: any;
+  assets?: Asset[];
 }
 
-export default function Layout({ children, activeTab, setActiveTab, user }: LayoutProps) {
+export default function Layout({ children, activeTab, setActiveTab, user, assets = [] }: LayoutProps) {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = React.useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = React.useState(true);
   const [logo, setLogo] = React.useState<string | null>(null);
+  const [mapViewEnabled, setMapViewEnabled] = React.useState(true);
 
   React.useEffect(() => {
     const unsub = firestoreService.subscribeDoc('settings', 'general', (data: any) => {
       if (data?.logo) setLogo(data.logo);
       else setLogo(null);
+      if (data?.mapViewEnabled !== undefined) setMapViewEnabled(data.mapViewEnabled);
+      else setMapViewEnabled(true);
     });
     return () => unsub();
   }, []);
 
+  React.useEffect(() => {
+    if (!mapViewEnabled && activeTab === 'map') {
+      setActiveTab('dashboard');
+    }
+  }, [mapViewEnabled, activeTab, setActiveTab]);
+
   const navItems = [
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
     { id: 'assets', label: 'Asset Registry', icon: Package },
+    { id: 'calendar', label: 'Maintenance Calendar', icon: CalendarDays },
+    { id: 'map', label: 'Map View', icon: MapPin },
     { id: 'discovery', label: 'Discovery', icon: Search, adminOnly: true },
     { id: 'baselines', label: 'Baselines', icon: ShieldCheck, adminOnly: true },
     { id: 'compliance', label: 'Compliance', icon: FileCheck, adminOnly: true },
@@ -56,7 +73,10 @@ export default function Layout({ children, activeTab, setActiveTab, user }: Layo
     { id: 'settings', label: 'System Settings', icon: Settings, adminOnly: true },
   ];
 
-  const filteredNavItems = navItems.filter(item => !item.adminOnly || user?.role === 'admin');
+  const filteredNavItems = navItems.filter(item => {
+    if (item.id === 'map' && !mapViewEnabled) return false;
+    return !item.adminOnly || user?.role === 'admin';
+  });
 
   const handleSignOut = () => {
     signOut(auth);
@@ -162,6 +182,12 @@ export default function Layout({ children, activeTab, setActiveTab, user }: Layo
             </div>
           </div>
           <div className="flex items-center gap-6">
+            <QRScanner 
+              triggerClassName="hidden md:flex h-10 px-4 bg-muted text-muted-foreground border border-border/80 rounded-xl hover:bg-muted/80 hover:text-foreground font-bold text-[11px] uppercase tracking-wider shadow-none" 
+              buttonText="Scan Tag" 
+              onViewAsset={(assetId) => setActiveTab('assets')} 
+            />
+            <NotificationCenter assets={assets} setActiveTab={setActiveTab} />
             <div className="flex items-center gap-3">
               <span className="text-sm font-medium text-foreground">{user?.displayName || 'Admin System'}</span>
               <div className="w-8 h-8 rounded-full bg-muted flex items-center justify-center text-[10px] font-bold text-muted-foreground">
