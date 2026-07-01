@@ -3,16 +3,35 @@ import { createServer as createViteServer } from "vite";
 import path from "path";
 import { fileURLToPath } from "url";
 import admin from "firebase-admin";
+import fs from "fs";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// Initialize Firebase Admin
-// On Google Cloud / Cloud Run, this will automatically use the service account
+// Initialize Firebase Admin with config from firebase-applet-config.json
 try {
-  admin.initializeApp();
+  const configPath = path.join(process.cwd(), "firebase-applet-config.json");
+  if (fs.existsSync(configPath)) {
+    const config = JSON.parse(fs.readFileSync(configPath, "utf-8"));
+    
+    if (config.firestoreDatabaseId) {
+      process.env.FIRESTORE_DATABASE = config.firestoreDatabaseId;
+    }
+    if (config.projectId) {
+      process.env.GCLOUD_PROJECT = config.projectId;
+      process.env.GOOGLE_CLOUD_PROJECT = config.projectId;
+    }
+
+    admin.initializeApp({
+      projectId: config.projectId
+    });
+    console.log(`Firebase Admin initialized successfully with projectId: ${config.projectId}, database: ${config.firestoreDatabaseId}`);
+  } else {
+    admin.initializeApp();
+    console.log("Firebase Admin initialized with default credentials.");
+  }
 } catch (error) {
-  console.warn("Firebase Admin failed to initialize with default credentials. Admin actions may fail.", error);
+  console.warn("Firebase Admin failed to initialize. Admin actions may fail.", error);
 }
 
 async function startServer() {
