@@ -31,7 +31,16 @@ import {
   AlertTriangle,
   Upload,
   X,
-  Image as ImageIcon
+  Image as ImageIcon,
+  Github,
+  GitBranch,
+  GitCommit,
+  GitPullRequest,
+  Terminal,
+  RefreshCw,
+  Loader2,
+  CheckCircle2,
+  AlertCircle
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useTheme } from './ThemeProvider';
@@ -45,6 +54,150 @@ export default function Settings() {
   const [mapViewEnabled, setMapViewEnabled] = React.useState(true);
   const [logo, setLogo] = React.useState<string | null>(null);
   const fileInputRef = React.useRef<HTMLInputElement>(null);
+
+  // GitHub Settings states
+  const [githubOwner, setGithubOwner] = React.useState('');
+  const [githubRepo, setGithubRepo] = React.useState('');
+  const [githubBranch, setGithubBranch] = React.useState('master');
+  const [githubToken, setGithubToken] = React.useState('');
+  const [hasToken, setHasToken] = React.useState(false);
+  const [maskedToken, setMaskedToken] = React.useState('');
+  const [savingConfig, setSavingConfig] = React.useState(false);
+
+  // Local Git Status states
+  const [localGit, setLocalGit] = React.useState<any>(null);
+  const [checkingLocal, setCheckingLocal] = React.useState(false);
+
+  // GitHub Commits (Update Feed) states
+  const [remoteCommits, setRemoteCommits] = React.useState<any[]>([]);
+  const [checkingRemote, setCheckingRemote] = React.useState(false);
+  const [remoteError, setRemoteError] = React.useState<string | null>(null);
+
+  // Update/Pull action states
+  const [updateMode, setUpdateMode] = React.useState<'stash' | 'force'>('stash');
+  const [updating, setUpdating] = React.useState(false);
+  const [updateLogs, setUpdateLogs] = React.useState<string[]>([]);
+
+  const fetchLocalStatus = async () => {
+    setCheckingLocal(true);
+    try {
+      const res = await fetch('/api/github/status');
+      if (res.ok) {
+        const data = await res.json();
+        setLocalGit(data);
+      }
+    } catch (e) {
+      console.error('Failed to fetch local git status:', e);
+    } finally {
+      setCheckingLocal(false);
+    }
+  };
+
+  const fetchGithubConfig = async () => {
+    try {
+      const res = await fetch('/api/github/config');
+      if (res.ok) {
+        const data = await res.json();
+        setGithubOwner(data.owner || '');
+        setGithubRepo(data.repo || '');
+        setGithubBranch(data.branch || 'master');
+        setHasToken(data.hasToken);
+        setMaskedToken(data.maskedToken || '');
+        if (data.hasToken) {
+          setGithubToken(data.maskedToken || '');
+        }
+      }
+    } catch (e) {
+      console.error('Failed to fetch GitHub config:', e);
+    }
+  };
+
+  const handleCheckUpdates = async () => {
+    setCheckingRemote(true);
+    setRemoteError(null);
+    try {
+      const params = new URLSearchParams({
+        owner: githubOwner,
+        repo: githubRepo,
+        branch: githubBranch
+      });
+      if (githubToken && !githubToken.startsWith('••••')) {
+        params.append('token', githubToken);
+      }
+      
+      const res = await fetch(`/api/github/latest?${params.toString()}`);
+      if (!res.ok) {
+        const errData = await res.json();
+        throw new Error(errData.error || 'Failed to fetch commits');
+      }
+      const data = await res.json();
+      setRemoteCommits(data.commits || []);
+      toast.success('Successfully checked GitHub for latest commits!');
+    } catch (e: any) {
+      setRemoteError(e.message);
+      toast.error(`GitHub Check Failed: ${e.message}`);
+    } finally {
+      setCheckingRemote(false);
+    }
+  };
+
+  const handleSaveGithubConfig = async () => {
+    setSavingConfig(true);
+    try {
+      const res = await fetch('/api/github/config', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          owner: githubOwner,
+          repo: githubRepo,
+          branch: githubBranch,
+          token: githubToken === maskedToken ? undefined : githubToken
+        })
+      });
+      if (res.ok) {
+        toast.success('GitHub configuration saved successfully');
+        fetchGithubConfig();
+      } else {
+        throw new Error('Failed to save config');
+      }
+    } catch (e: any) {
+      toast.error(`Failed to save configuration: ${e.message}`);
+    } finally {
+      setSavingConfig(false);
+    }
+  };
+
+  const handleTriggerUpdate = async () => {
+    setUpdating(true);
+    setUpdateLogs(['[System] Initializing update procedure...']);
+    try {
+      const res = await fetch('/api/github/update', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ mode: updateMode })
+      });
+      const data = await res.json();
+      if (data.logs) {
+        setUpdateLogs(data.logs);
+      } else {
+        setUpdateLogs(prev => [...prev, '[System] Done. Details retrieved.']);
+      }
+      if (res.ok) {
+        toast.success('Application updated successfully! Refreshing...');
+        fetchLocalStatus();
+        setTimeout(() => {
+          window.location.reload();
+        }, 2000);
+      } else {
+        throw new Error(data.error || 'Update failed');
+      }
+    } catch (e: any) {
+      toast.error(`Application Update Failed: ${e.message}`);
+      setUpdateLogs(prev => [...prev, `[System ERROR] ${e.message}`]);
+    } finally {
+      setUpdating(false);
+    }
+  };
 
   React.useEffect(() => {
     const loadSettings = async () => {
@@ -267,6 +420,252 @@ export default function Settings() {
                 Update Database Settings
               </Button>
             </CardFooter>
+          </Card>
+
+          <Card className="border-none shadow-md overflow-hidden bg-card text-card-foreground">
+            <CardHeader className="bg-muted/30 pb-6">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 rounded-xl bg-purple-500/10">
+                    <Github className="w-5 h-5 text-purple-500" />
+                  </div>
+                  <div>
+                    <CardTitle className="text-xl font-bold">GitHub Update Center</CardTitle>
+                    <CardDescription>Configure Git updates and pull application code directly</CardDescription>
+                  </div>
+                </div>
+                {localGit && (
+                  <Badge variant={localGit.hasChanges ? "destructive" : "secondary"} className="h-6">
+                    {localGit.hasChanges ? "Local Changes Detected" : "Up to Date"}
+                  </Badge>
+                )}
+              </div>
+            </CardHeader>
+            <CardContent className="pt-6 space-y-6">
+              {/* Local Git Status Info */}
+              <div className="p-4 rounded-2xl bg-muted/40 border border-border flex flex-col md:flex-row md:items-center justify-between gap-4">
+                <div className="space-y-1">
+                  <div className="flex items-center gap-2">
+                    <GitBranch className="w-4 h-4 text-primary" />
+                    <span className="font-bold text-sm">Local Branch:</span>
+                    <Badge variant="outline" className="font-mono text-xs">{localGit?.branch || 'master'}</Badge>
+                  </div>
+                  {localGit?.lastCommit ? (
+                    <div className="text-xs text-muted-foreground space-y-1 mt-2">
+                      <div className="flex items-center gap-1.5">
+                        <GitCommit className="w-3.5 h-3.5" />
+                        <span className="font-semibold text-foreground">Latest Commit:</span>
+                        <code className="bg-muted px-1.5 py-0.5 rounded text-primary font-mono text-[11px]">{localGit.lastCommit.hash}</code>
+                      </div>
+                      <p className="italic">"{localGit.lastCommit.subject}"</p>
+                      <p className="text-[10px] text-muted-foreground/80">by {localGit.lastCommit.author} on {new Date(localGit.lastCommit.date).toLocaleString()}</p>
+                    </div>
+                  ) : (
+                    <p className="text-xs text-muted-foreground">No local commit information found</p>
+                  )}
+                </div>
+                <div className="flex flex-col gap-2">
+                  <Button variant="outline" size="sm" className="h-9 gap-1.5 border-border" onClick={fetchLocalStatus} disabled={checkingLocal}>
+                    <RefreshCw className={`w-3.5 h-3.5 ${checkingLocal ? 'animate-spin' : ''}`} />
+                    Refresh Git
+                  </Button>
+                </div>
+              </div>
+
+              {localGit?.hasChanges && (
+                <div className="p-4 rounded-2xl bg-rose-500/5 border border-rose-500/10 flex items-start gap-3">
+                  <AlertCircle className="w-5 h-5 text-rose-500 shrink-0 mt-0.5" />
+                  <div className="space-y-1">
+                    <p className="text-xs font-bold text-rose-800 dark:text-rose-400">Uncommitted Local Changes</p>
+                    <p className="text-[11px] text-rose-700 dark:text-rose-400/80 leading-relaxed">
+                      You have uncommitted modifications in your workspace. Standard updates may fail unless you select <strong>Forced Pull</strong> to reset, or <strong>Safe Pull</strong> to automatically stash them.
+                    </p>
+                  </div>
+                </div>
+              )}
+
+              {/* GitHub Repository Configuration */}
+              <div className="space-y-4">
+                <h4 className="text-xs font-bold uppercase tracking-widest text-muted-foreground">GitHub Repository Settings</h4>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="space-y-2">
+                    <Label className="font-semibold">Repository Owner</Label>
+                    <Input 
+                      placeholder="e.g. octocat" 
+                      value={githubOwner} 
+                      onChange={(e) => setGithubOwner(e.target.value)}
+                      className="h-11 bg-muted/50 border-border focus:bg-card" 
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label className="font-semibold">Repository Name</Label>
+                    <Input 
+                      placeholder="e.g. Hello-World" 
+                      value={githubRepo} 
+                      onChange={(e) => setGithubRepo(e.target.value)}
+                      className="h-11 bg-muted/50 border-border focus:bg-card" 
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label className="font-semibold">Target Branch</Label>
+                    <Input 
+                      placeholder="master or main" 
+                      value={githubBranch} 
+                      onChange={(e) => setGithubBranch(e.target.value)}
+                      className="h-11 bg-muted/50 border-border focus:bg-card" 
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label className="font-semibold">Personal Access Token (PAT)</Label>
+                    <div className="relative">
+                      <Input 
+                        type="password"
+                        placeholder={hasToken ? "••••••••••••••••" : "Optional for private repos"} 
+                        value={githubToken} 
+                        onChange={(e) => setGithubToken(e.target.value)}
+                        className="h-11 bg-muted/50 border-border pr-10 focus:bg-card" 
+                      />
+                      <Lock className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                    </div>
+                  </div>
+                </div>
+                
+                <div className="flex justify-end pt-2">
+                  <Button 
+                    className="gap-2 h-10 px-6" 
+                    disabled={savingConfig || !githubOwner || !githubRepo} 
+                    onClick={handleSaveGithubConfig}
+                  >
+                    {savingConfig ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+                    Save GitHub Config
+                  </Button>
+                </div>
+              </div>
+
+              <Separator className="bg-border/60" />
+
+              {/* Check for Updates Feed */}
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <h4 className="text-xs font-bold uppercase tracking-widest text-muted-foreground">GitHub Update Feed</h4>
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    className="h-8 text-xs gap-1.5 border-border" 
+                    onClick={handleCheckUpdates} 
+                    disabled={checkingRemote || !githubOwner || !githubRepo}
+                  >
+                    {checkingRemote ? <Loader2 className="w-3 h-3 animate-spin" /> : <RefreshCw className="w-3 h-3" />}
+                    Check Repository
+                  </Button>
+                </div>
+
+                {remoteError && (
+                  <div className="p-3.5 rounded-xl bg-destructive/5 border border-destructive/10 text-xs text-destructive-foreground">
+                    Error querying repository: {remoteError}
+                  </div>
+                )}
+
+                {remoteCommits.length > 0 ? (
+                  <div className="space-y-3 max-h-72 overflow-y-auto pr-1">
+                    {remoteCommits.map((commit, idx) => {
+                      const isLocal = localGit?.lastCommit?.hash?.slice(0, 7) === commit.shortSha;
+                      return (
+                        <div key={commit.sha} className={`p-3 rounded-xl border flex items-start justify-between gap-4 transition-all ${isLocal ? 'bg-primary/5 border-primary/20' : 'bg-muted/30 border-border hover:border-muted-foreground/30'}`}>
+                          <div className="space-y-1">
+                            <div className="flex items-center gap-2">
+                              <code className="text-[11px] font-mono bg-muted px-1.5 py-0.5 rounded text-foreground font-semibold">{commit.shortSha}</code>
+                              <span className="text-xs font-semibold text-foreground line-clamp-1">{commit.message}</span>
+                            </div>
+                            <p className="text-[10px] text-muted-foreground">by {commit.author} on {new Date(commit.date).toLocaleString()}</p>
+                          </div>
+                          <div className="shrink-0 flex items-center gap-1.5">
+                            {isLocal ? (
+                              <Badge className="bg-primary/10 text-primary hover:bg-primary/20 border-none text-[10px] py-0.5 px-2">Current Active Version</Badge>
+                            ) : idx === 0 ? (
+                              <Badge className="bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-none text-[10px] py-0.5 px-2">Latest Available Release</Badge>
+                            ) : null}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                ) : !checkingRemote && (
+                  <div className="p-8 rounded-2xl bg-muted/20 border border-dashed border-border flex flex-col items-center justify-center text-center">
+                    <GitPullRequest className="w-8 h-8 text-muted-foreground/40 mb-2" />
+                    <p className="text-xs font-medium text-muted-foreground">Check repository updates to view available branch commits</p>
+                  </div>
+                )}
+              </div>
+
+              {/* Trigger Update Form & Log Window */}
+              <div className="space-y-4 pt-2">
+                <div className="p-4 rounded-2xl bg-primary/5 border border-primary/10 space-y-4">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                    <div className="space-y-1">
+                      <p className="text-sm font-bold">Deploy Code Update</p>
+                      <p className="text-xs text-muted-foreground">Fetch and pull latest code on branch {githubBranch}. This will pull and automatically build the code.</p>
+                    </div>
+                    <div className="flex items-center bg-muted p-1 rounded-xl border border-border w-fit shrink-0">
+                      <button 
+                        className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${updateMode === 'stash' ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
+                        onClick={() => setUpdateMode('stash')}
+                      >
+                        Safe Pull
+                      </button>
+                      <button 
+                        className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${updateMode === 'force' ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
+                        onClick={() => setUpdateMode('force')}
+                      >
+                        Forced Pull
+                      </button>
+                    </div>
+                  </div>
+
+                  <Button 
+                    className="w-full h-11 gap-2 shadow-lg shadow-purple-500/20 bg-purple-600 hover:bg-purple-700 text-white" 
+                    onClick={handleTriggerUpdate} 
+                    disabled={updating || !githubOwner || !githubRepo}
+                  >
+                    {updating ? (
+                      <>
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                        Updating Application...
+                      </>
+                    ) : (
+                      <>
+                        <RefreshCw className="w-4 h-4" />
+                        Perform Git Update & Build
+                      </>
+                    )}
+                  </Button>
+                </div>
+
+                {/* Console Logs */}
+                {(updating || updateLogs.length > 0) && (
+                  <div className="space-y-2 animate-in fade-in duration-300">
+                    <div className="flex items-center gap-2 text-xs font-bold text-muted-foreground uppercase tracking-widest pl-1">
+                      <Terminal className="w-3.5 h-3.5" />
+                      Deployment Terminal Console
+                    </div>
+                    <pre className="bg-zinc-950 text-emerald-400 p-4 rounded-xl font-mono text-xs overflow-auto max-h-60 border border-zinc-800 shadow-inner space-y-1 leading-relaxed">
+                      {updateLogs.map((log, index) => (
+                        <div key={index} className="flex items-start gap-2">
+                          <span className="text-zinc-600 select-none">$</span>
+                          <span>{log}</span>
+                        </div>
+                      ))}
+                      {updating && (
+                        <div className="flex items-center gap-2 text-emerald-400/70 animate-pulse mt-1 pl-4">
+                          <Loader2 className="w-3 h-3 animate-spin" />
+                          Running task in background...
+                        </div>
+                      )}
+                    </pre>
+                  </div>
+                )}
+              </div>
+            </CardContent>
           </Card>
         </div>
 
