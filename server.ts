@@ -3,6 +3,8 @@ import { createServer as createViteServer } from "vite";
 import path from "path";
 import { fileURLToPath } from "url";
 import admin from "firebase-admin";
+import { getAuth } from "firebase-admin/auth";
+import { getFirestore } from "firebase-admin/firestore";
 import fs from "fs";
 import { exec } from "child_process";
 import { promisify } from "util";
@@ -59,10 +61,10 @@ async function startServer() {
 
     try {
       // Verify the admin token
-      const decodedToken = await admin.auth().verifyIdToken(adminToken);
+      const decodedToken = await getAuth().verifyIdToken(adminToken);
       
       // Check if the user is actually an admin in Firestore
-      const userDoc = await admin.firestore().collection('users').doc(decodedToken.uid).get();
+      const userDoc = await getFirestore().collection('users').doc(decodedToken.uid).get();
       const userData = userDoc.data();
 
       if (userData?.role !== 'admin') {
@@ -70,7 +72,7 @@ async function startServer() {
       }
 
       // Update the user's password
-      await admin.auth().updateUser(uid, { password: newPassword });
+      await getAuth().updateUser(uid, { password: newPassword });
       
       res.json({ success: true, message: "Password updated successfully" });
     } catch (error: any) {
@@ -118,7 +120,7 @@ async function startServer() {
   // GET: GitHub Integration Config
   app.get("/api/github/config", async (req, res) => {
     try {
-      const doc = await admin.firestore().collection("settings").doc("github").get();
+      const doc = await getFirestore().collection("settings").doc("github").get();
       if (doc.exists) {
         const data = doc.data();
         const maskedToken = data?.token ? "••••" + data.token.slice(-4) : "";
@@ -141,7 +143,7 @@ async function startServer() {
   app.post("/api/github/config", async (req, res) => {
     const { owner, repo, branch, token } = req.body;
     try {
-      const docRef = admin.firestore().collection("settings").doc("github");
+      const docRef = getFirestore().collection("settings").doc("github");
       const doc = await docRef.get();
       
       const updateData: any = {
@@ -167,7 +169,7 @@ async function startServer() {
   // GET: Latest GitHub Commits
   app.get("/api/github/latest", async (req, res) => {
     try {
-      const doc = await admin.firestore().collection("settings").doc("github").get();
+      const doc = await getFirestore().collection("settings").doc("github").get();
       const config = doc.exists ? doc.data() : null;
 
       const owner = (req.query.owner as string) || config?.owner;
@@ -227,7 +229,7 @@ async function startServer() {
     };
 
     try {
-      const doc = await admin.firestore().collection("settings").doc("github").get();
+      const doc = await getFirestore().collection("settings").doc("github").get();
       if (!doc.exists) {
         return res.status(400).json({ error: "GitHub integration is not configured." });
       }
