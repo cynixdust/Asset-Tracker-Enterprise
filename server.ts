@@ -171,7 +171,12 @@ class SQLiteFallback {
 
       if (query.toUpperCase().startsWith("SELECT * FROM LOCAL_USERS")) {
         const [usernameOrEmail] = actualParams;
-        const user = this.data.local_users.find(u => u.username === usernameOrEmail || u.email === usernameOrEmail);
+        const cleanName = usernameOrEmail && usernameOrEmail.includes('@') ? usernameOrEmail.split('@')[0] : usernameOrEmail;
+        const user = this.data.local_users.find(u => 
+          u.username === usernameOrEmail || 
+          u.email === usernameOrEmail || 
+          (cleanName && (u.username === cleanName || u.email === cleanName))
+        );
         if (actualCallback) setTimeout(() => actualCallback(null, user || null), 0);
         return;
       }
@@ -366,9 +371,11 @@ async function startServer() {
       return res.status(400).json({ error: "Username and password are required" });
     }
 
+    const cleanUsername = username.includes('@') ? username.split('@')[0] : username;
+
     db.get(
-      "SELECT * FROM local_users WHERE username = ? OR email = ?",
-      [username, username],
+      "SELECT * FROM local_users WHERE username = ? OR email = ? OR username = ? OR email = ?",
+      [username, username, cleanUsername, cleanUsername],
       (err, user: any) => {
         if (err) {
           return res.status(500).json({ error: err.message });
