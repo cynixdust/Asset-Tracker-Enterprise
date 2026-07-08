@@ -218,6 +218,7 @@ class SQLiteFallback {
 // Safely load sqlite3 dynamically
 let sqlite3: any = null;
 try {
+  // @ts-ignore
   sqlite3 = await import("sqlite3");
 } catch (e) {
   console.warn("Native sqlite3 driver failed to load. Falling back to pure JS simulated database.");
