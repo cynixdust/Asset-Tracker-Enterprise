@@ -18,7 +18,24 @@ function createWindow() {
   });
 
   if (process.env.NODE_ENV === 'development') {
-    win.loadURL('http://localhost:3000');
+    let isLoaded = false;
+    const loadDevURL = () => {
+      if (isLoaded) return;
+      win.loadURL('http://localhost:3000').then(() => {
+        isLoaded = true;
+      }).catch((err) => {
+        console.log('Failed to load dev URL, retrying in 1.5s...', err.message);
+      });
+    };
+
+    win.webContents.on('did-fail-load', (event, errorCode, errorDescription, validatedURL, isMainFrame) => {
+      if (isMainFrame) {
+        console.log('Main frame load failed. Vite dev server might still be compiling or starting up. Retrying connection in 1.5 seconds...');
+        setTimeout(loadDevURL, 1500);
+      }
+    });
+
+    loadDevURL();
     win.webContents.openDevTools();
   } else {
     // In production, load the built index.html from the dist folder
