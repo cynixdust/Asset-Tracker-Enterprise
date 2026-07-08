@@ -48,7 +48,7 @@ import {
 } from '@/components/ui/select';
 import { UserProfile } from '@/src/types';
 import { firestoreService } from '@/src/lib/firestore';
-import { auth as mainAuth } from '@/src/firebase';
+import { auth as mainAuth, isSqliteMode } from '@/src/firebase';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
@@ -83,6 +83,34 @@ export default function UserManagement() {
     e.preventDefault();
     setProcessing(true);
     
+    if (isSqliteMode()) {
+      try {
+        const res = await fetch('/api/auth/register', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            username: newUser.username,
+            email: newUser.email,
+            password: newUser.password,
+            displayName: newUser.username
+          })
+        });
+        if (!res.ok) {
+          const err = await res.json();
+          throw new Error(err.error || 'Failed to create user');
+        }
+        
+        toast.success('User account created successfully');
+        setIsAddUserOpen(false);
+        setNewUser({ email: '', password: '', username: '', role: 'user' });
+      } catch (error: any) {
+        toast.error(error.message);
+      } finally {
+        setProcessing(false);
+      }
+      return;
+    }
+
     let secondaryApp;
     try {
       // Create user in Firebase Auth using a secondary app instance
@@ -161,6 +189,18 @@ export default function UserManagement() {
 
   const handleManualPasswordChange = async (uid: string, newPass: string) => {
     try {
+      if (isSqliteMode()) {
+        const response = await fetch('/api/admin/update-password-local', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ uid, newPassword: newPass })
+        });
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error || 'Password update failed');
+        toast.success('Password updated successfully');
+        return;
+      }
+
       const adminToken = await mainAuth.currentUser?.getIdToken();
       if (!adminToken) throw new Error("Could not verify administrative identity.");
 
@@ -183,6 +223,10 @@ export default function UserManagement() {
 
   const handlePasswordReset = async (email: string) => {
     try {
+      if (isSqliteMode()) {
+        toast.info("Password resets are only supported in Firebase cloud mode. For local mode, update the user's password directly.");
+        return;
+      }
       await sendPasswordResetEmail(mainAuth, email);
       toast.success(`Password reset email sent to ${email}`);
     } catch (error: any) {
@@ -191,9 +235,15 @@ export default function UserManagement() {
   };
 
   const handleDeleteUser = async (uid: string) => {
-    if (!window.confirm('Are you sure? This will only remove the Firestore profile. The Auth account must be deleted from Firebase Console.')) return;
+    const confirmMsg = isSqliteMode()
+      ? 'Are you sure you want to delete this user?'
+      : 'Are you sure? This will only remove the Firestore profile. The Auth account must be deleted from Firebase Console.';
+    if (!window.confirm(confirmMsg)) return;
     try {
       await firestoreService.delete('users', uid);
+      if (isSqliteMode()) {
+        await fetch(`/api/auth/users/${uid}`, { method: 'DELETE' });
+      }
       toast.success('User profile removed');
     } catch (error) {
       toast.error('Failed to remove profile');

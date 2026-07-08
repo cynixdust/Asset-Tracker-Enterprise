@@ -14,7 +14,7 @@ import {
   orderBy,
   arrayUnion
 } from 'firebase/firestore';
-import { db, auth } from '../firebase';
+import { db, auth, isSqliteMode } from '../firebase';
 
 export enum OperationType {
   CREATE = 'create',
@@ -69,6 +69,27 @@ function handleFirestoreError(error: unknown, operationType: OperationType, path
 
 export const firestoreService = {
   async add(path: string, data: any) {
+    if (isSqliteMode()) {
+      try {
+        const res = await fetch(`/api/db/${path}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            ...data,
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+            createdBy: 'local-admin-uid'
+          })
+        });
+        if (!res.ok) throw new Error(`SQLite add failed: ${res.statusText}`);
+        const result = await res.json();
+        return result.id;
+      } catch (error) {
+        console.error("SQLite Add Document Error:", error);
+        throw error;
+      }
+    }
+
     try {
       const docRef = await addDoc(collection(db, path), {
         ...data,
@@ -83,6 +104,24 @@ export const firestoreService = {
   },
 
   async update(path: string, id: string, data: any) {
+    if (isSqliteMode()) {
+      try {
+        const res = await fetch(`/api/db/${path}/${id}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            ...data,
+            updatedAt: new Date().toISOString()
+          })
+        });
+        if (!res.ok) throw new Error(`SQLite update failed: ${res.statusText}`);
+        return;
+      } catch (error) {
+        console.error("SQLite Update Document Error:", error);
+        throw error;
+      }
+    }
+
     try {
       const docRef = doc(db, path, id);
       await updateDoc(docRef, {
@@ -95,6 +134,24 @@ export const firestoreService = {
   },
 
   async set(path: string, id: string, data: any) {
+    if (isSqliteMode()) {
+      try {
+        const res = await fetch(`/api/db/${path}/${id}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            ...data,
+            updatedAt: new Date().toISOString()
+          })
+        });
+        if (!res.ok) throw new Error(`SQLite set failed: ${res.statusText}`);
+        return;
+      } catch (error) {
+        console.error("SQLite Set Document Error:", error);
+        throw error;
+      }
+    }
+
     try {
       const docRef = doc(db, path, id);
       await setDoc(docRef, {
@@ -107,6 +164,19 @@ export const firestoreService = {
   },
 
   async delete(path: string, id: string) {
+    if (isSqliteMode()) {
+      try {
+        const res = await fetch(`/api/db/${path}/${id}`, {
+          method: 'DELETE'
+        });
+        if (!res.ok) throw new Error(`SQLite delete failed: ${res.statusText}`);
+        return;
+      } catch (error) {
+        console.error("SQLite Delete Document Error:", error);
+        throw error;
+      }
+    }
+
     try {
       const docRef = doc(db, path, id);
       await deleteDoc(docRef);
@@ -116,6 +186,18 @@ export const firestoreService = {
   },
 
   async get(path: string, id: string) {
+    if (isSqliteMode()) {
+      try {
+        const res = await fetch(`/api/db/${path}/${id}`);
+        if (res.status === 404) return null;
+        if (!res.ok) throw new Error(`SQLite get failed: ${res.statusText}`);
+        return await res.json();
+      } catch (error) {
+        console.error("SQLite Get Document Error:", error);
+        return null;
+      }
+    }
+
     try {
       const docRef = doc(db, path, id);
       const docSnap = await getDoc(docRef);
@@ -126,6 +208,21 @@ export const firestoreService = {
   },
 
   async checkUniqueness(path: string, field: string, value: string, excludeId?: string) {
+    if (isSqliteMode()) {
+      try {
+        const res = await fetch(`/api/db/${path}`);
+        if (!res.ok) return false;
+        const list = await res.json() as any[];
+        if (excludeId) {
+          return list.every(doc => doc[field] !== value || doc.id === excludeId);
+        }
+        return list.every(doc => doc[field] !== value);
+      } catch (error) {
+        console.error("SQLite Uniqueness Check Error:", error);
+        return false;
+      }
+    }
+
     try {
       const q = query(collection(db, path), where(field, "==", value));
       const querySnapshot = await getDocs(q);
@@ -140,6 +237,26 @@ export const firestoreService = {
   },
 
   subscribe(path: string, callback: (data: any[]) => void, queryConstraints: any[] = []) {
+    if (isSqliteMode()) {
+      let active = true;
+      const poll = async () => {
+        try {
+          const res = await fetch(`/api/db/${path}`);
+          if (!res.ok) return;
+          const data = await res.json();
+          if (active) callback(data);
+        } catch (e) {
+          console.error(`Poll error on collection ${path}:`, e);
+        }
+      };
+      poll();
+      const interval = setInterval(poll, 2500); // Poll every 2.5s
+      return () => {
+        active = false;
+        clearInterval(interval);
+      };
+    }
+
     const q = query(collection(db, path), ...queryConstraints);
     return onSnapshot(q, (snapshot) => {
       const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
@@ -150,6 +267,30 @@ export const firestoreService = {
   },
 
   subscribeDoc(path: string, id: string, callback: (data: any) => void) {
+    if (isSqliteMode()) {
+      let active = true;
+      const poll = async () => {
+        try {
+          const res = await fetch(`/api/db/${path}/${id}`);
+          if (res.status === 404) {
+            if (active) callback(null);
+            return;
+          }
+          if (!res.ok) return;
+          const data = await res.json();
+          if (active) callback(data);
+        } catch (e) {
+          console.error(`Poll error on doc ${path}/${id}:`, e);
+        }
+      };
+      poll();
+      const interval = setInterval(poll, 2500);
+      return () => {
+        active = false;
+        clearInterval(interval);
+      };
+    }
+
     const docRef = doc(db, path, id);
     return onSnapshot(docRef, (snapshot) => {
       callback(snapshot.exists() ? { id: snapshot.id, ...snapshot.data() } : null);

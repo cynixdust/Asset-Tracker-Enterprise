@@ -4,8 +4,7 @@
  */
 
 import React from 'react';
-import { onAuthStateChanged } from 'firebase/auth';
-import { auth } from './firebase';
+import { auth, onAuthStateChanged } from './firebase';
 import { firestoreService } from './lib/firestore';
 import { Asset, UserProfile, AuditLog, StatusHistoryEntry, Baseline, DiscoveryJob, DiscoveryResult, Policy } from './types';
 import { Toaster } from '@/components/ui/sonner';

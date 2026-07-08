@@ -35,7 +35,7 @@ import {
   SelectValue 
 } from '@/components/ui/select';
 import { firestoreService } from '@/src/lib/firestore';
-import { auth, db } from '@/src/firebase';
+import { auth, db, isSqliteMode } from '@/src/firebase';
 import { collection, query, where, getDocs } from 'firebase/firestore';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
@@ -233,12 +233,23 @@ export default function QRScanner({
     setScannedAsset(null);
 
     try {
-      const q = query(collection(db, 'assets'), where('assetTag', '==', trimmed));
-      const querySnapshot = await getDocs(q);
+      let assetData: Asset | null = null;
+      if (isSqliteMode()) {
+        const res = await fetch('/api/db/assets');
+        if (res.ok) {
+          const assets = await res.json() as Asset[];
+          assetData = assets.find(a => a.assetTag === trimmed) || null;
+        }
+      } else {
+        const q = query(collection(db, 'assets'), where('assetTag', '==', trimmed));
+        const querySnapshot = await getDocs(q);
+        if (!querySnapshot.empty) {
+          const docSnap = querySnapshot.docs[0];
+          assetData = { id: docSnap.id, ...docSnap.data() } as Asset;
+        }
+      }
 
-      if (!querySnapshot.empty) {
-        const docSnap = querySnapshot.docs[0];
-        const assetData = { id: docSnap.id, ...docSnap.data() } as Asset;
+      if (assetData) {
         setScannedAsset(assetData);
         setNewStatus(assetData.status);
         toast.success(`Asset identified: ${assetData.name}`);

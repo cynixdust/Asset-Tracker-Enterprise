@@ -1,12 +1,9 @@
 import React from 'react';
 import { 
   signInWithPopup, 
-  GoogleAuthProvider, 
-  signInWithEmailAndPassword,
-  createUserWithEmailAndPassword,
-  updateProfile
+  GoogleAuthProvider
 } from 'firebase/auth';
-import { auth } from '../firebase';
+import { auth, signInWithEmailAndPassword, createUserWithEmailAndPassword, updateProfile } from '../firebase';
 import { firestoreService } from '../lib/firestore';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
